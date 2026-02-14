@@ -41,6 +41,58 @@ BEHAVIOR:
 - Be personable — light humor is welcome when appropriate`;
 }
 
+// ── Mock responses for demo mode (no AWS keys) ─────────────────
+const MOCK_RESPONSES = [
+  "That's a great question! I'd love to help you explore that further. What specifically are you most curious about?",
+  "Absolutely! Let me break that down for you. The key thing to know is that we're here to make this as easy as possible.",
+  "I hear you! That's something a lot of people ask about. The short answer is — we've got you covered.",
+  "Interesting! I can definitely help with that. Would you like me to go into more detail, or shall we look at some options?",
+  "Great thinking! There are a few ways to approach this. Want me to walk you through the most popular option?",
+  "Of course! I'm glad you asked. Let me share what I know — and if you need more detail, just say the word.",
+  "That's exactly what I'm here for! Let me pull together some info for you. One moment...",
+  "Love that question! Here's what I'd suggest — and feel free to tell me if you'd like to explore a different angle.",
+];
+
+function getMockResponse(): string {
+  return MOCK_RESPONSES[Math.floor(Math.random() * MOCK_RESPONSES.length)];
+}
+
+async function callBedrock(
+  messages: Array<{ role: string; content: string }>
+): Promise<string | null> {
+  const region = process.env.AWS_REGION || "us-east-1";
+  const modelId =
+    process.env.VELYRA_MODEL_ID ||
+    "us.anthropic.claude-3-5-sonnet-20241022-v2:0";
+
+  try {
+    const { BedrockRuntimeClient, InvokeModelCommand } = await import(
+      "@aws-sdk/client-bedrock-runtime"
+    );
+
+    const client = new BedrockRuntimeClient({ region });
+
+    const command = new InvokeModelCommand({
+      modelId,
+      contentType: "application/json",
+      accept: "application/json",
+      body: JSON.stringify({
+        anthropic_version: "bedrock-2023-05-31",
+        messages,
+        max_tokens: MAX_TOKENS_PER_RESPONSE,
+        temperature: 0.7,
+        top_p: 0.9,
+      }),
+    });
+
+    const response = await client.send(command);
+    const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+    return responseBody.content?.[0]?.text || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -55,31 +107,38 @@ export async function POST(request: NextRequest) {
     };
 
     if (!message || typeof message !== "string") {
-      return NextResponse.json({ error: "Message is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Message is required" },
+        { status: 400 }
+      );
     }
 
     const session = getSession(sessionId);
 
     if (session.count >= MAX_REQUESTS_PER_SESSION) {
       return NextResponse.json({
-        reply: "We've had a great conversation! For more help, I'd love to connect you with the team directly.",
+        reply:
+          "We've had a great conversation! For more help, I'd love to connect you with the team directly.",
         rateLimited: true,
       });
     }
 
     if (session.failures >= CIRCUIT_BREAKER_THRESHOLD) {
       return NextResponse.json({
-        reply: "I'm experiencing a brief hiccup — please try again shortly.",
+        reply:
+          "I'm experiencing a brief hiccup — please try again shortly.",
         circuitOpen: true,
       });
     }
 
     session.count++;
 
-    // Build messages for Bedrock Converse-style
     const messages = [
       { role: "user" as const, content: buildSystemPrompt() },
-      { role: "assistant" as const, content: "Understood. I am Velyra, ready to assist." },
+      {
+        role: "assistant" as const,
+        content: "Understood. I am Velyra, ready to assist.",
+      },
       ...history.slice(-10).map((msg) => ({
         role: msg.role as "user" | "assistant",
         content: msg.content,
@@ -87,64 +146,41 @@ export async function POST(request: NextRequest) {
       { role: "user" as const, content: message },
     ];
 
-    const region = process.env.AWS_REGION || "us-east-1";
-    const modelId = process.env.VELYRA_MODEL_ID || "us.anthropic.claude-3-5-sonnet-20241022-v2:0";
-
-    const { BedrockRuntimeClient, InvokeModelCommand } = await import(
-      "@aws-sdk/client-bedrock-runtime"
-    );
-
-    const client = new BedrockRuntimeClient({ region });
-
-    let reply = "";
+    // Try Bedrock, fall back to mock
+    let reply: string | null = null;
     let retries = 0;
 
-    while (retries < MAX_RETRIES) {
-      try {
-        const command = new InvokeModelCommand({
-          modelId,
-          contentType: "application/json",
-          accept: "application/json",
-          body: JSON.stringify({
-            anthropic_version: "bedrock-2023-05-31",
-            messages,
-            max_tokens: MAX_TOKENS_PER_RESPONSE,
-            temperature: 0.7,
-            top_p: 0.9,
-          }),
-        });
-
-        const response = await client.send(command);
-        const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-
-        reply =
-          responseBody.content?.[0]?.text ||
-          "I'd be happy to help — could you tell me more about what you're looking for?";
-
-        session.failures = 0;
-        break;
-      } catch (error) {
+    while (retries < MAX_RETRIES && !reply) {
+      reply = await callBedrock(messages);
+      if (!reply) {
         retries++;
         session.failures++;
-
-        if (retries >= MAX_RETRIES) {
-          console.error("Velyra chat error after retries:", error);
-          reply = "I'm having a moment — could you try that again?";
-        } else {
-          await new Promise((r) => setTimeout(r, 1000 * retries));
+        if (retries < MAX_RETRIES) {
+          await new Promise((r) => setTimeout(r, 500 * retries));
         }
+      } else {
+        session.failures = 0;
       }
+    }
+
+    // Fallback to demo mode
+    if (!reply) {
+      console.log("Bedrock unavailable — using demo mode");
+      reply = getMockResponse();
+      session.failures = 0; // Don't trip circuit breaker for demo mode
     }
 
     return NextResponse.json({
       reply,
       sessionId,
       remainingMessages: MAX_REQUESTS_PER_SESSION - session.count,
+      demo: !process.env.AWS_ACCESS_KEY_ID, // Let frontend know
     });
   } catch (error) {
     console.error("Velyra chat route error:", error);
     return NextResponse.json({
-      reply: "Something went wrong — please try again.",
+      reply: getMockResponse(),
+      demo: true,
     });
   }
 }

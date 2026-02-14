@@ -1,6 +1,6 @@
 /**
  * Voice playback utility — fetches TTS from /api/voice and plays via Audio API.
- * Extracted from Sophia's proven playback pattern.
+ * Gracefully handles demo mode (no AWS keys) by simulating speech timing.
  */
 
 type VoicePlayerCallbacks = {
@@ -15,9 +15,9 @@ export function createVoicePlayer(
 ) {
   let audioRef: HTMLAudioElement | null = null;
   let currentUrl: string | null = null;
+  let demoTimer: ReturnType<typeof setTimeout> | null = null;
 
   async function play(text: string): Promise<void> {
-    // Stop any current playback first
     stop();
 
     try {
@@ -29,12 +29,24 @@ export function createVoicePlayer(
         body: JSON.stringify({ text, sessionId }),
       });
 
-      if (!response.ok) {
-        callbacks.onEnd?.();
+      // 204 = demo mode, no audio. Simulate speaking duration.
+      if (response.status === 204 || !response.ok) {
+        const duration = Math.max(1500, text.length * 50); // ~50ms per character
+        demoTimer = setTimeout(() => {
+          callbacks.onEnd?.();
+        }, duration);
         return;
       }
 
       const blob = await response.blob();
+      if (blob.size === 0) {
+        const duration = Math.max(1500, text.length * 50);
+        demoTimer = setTimeout(() => {
+          callbacks.onEnd?.();
+        }, duration);
+        return;
+      }
+
       const url = URL.createObjectURL(blob);
       currentUrl = url;
 
@@ -48,14 +60,22 @@ export function createVoicePlayer(
 
       audio.onerror = () => {
         cleanup();
-        callbacks.onEnd?.();
+        // Fall back to demo timing
+        const duration = Math.max(1500, text.length * 50);
+        demoTimer = setTimeout(() => {
+          callbacks.onEnd?.();
+        }, duration);
       };
 
       await audio.play();
     } catch (error) {
       cleanup();
+      // Demo fallback
+      const duration = Math.max(1500, text.length * 50);
+      demoTimer = setTimeout(() => {
+        callbacks.onEnd?.();
+      }, duration);
       callbacks.onError?.(error);
-      callbacks.onEnd?.();
     }
   }
 
@@ -69,6 +89,10 @@ export function createVoicePlayer(
       URL.revokeObjectURL(currentUrl);
       currentUrl = null;
     }
+    if (demoTimer) {
+      clearTimeout(demoTimer);
+      demoTimer = null;
+    }
   }
 
   function cleanup(): void {
@@ -80,6 +104,7 @@ export function createVoicePlayer(
   }
 
   function isPlaying(): boolean {
+    if (demoTimer) return true;
     return audioRef !== null && !audioRef.paused;
   }
 

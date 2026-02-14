@@ -4,41 +4,52 @@ import { useVelyraStore } from "@/store/velyra-store";
 import { motion } from "framer-motion";
 import { useState, useCallback, useRef, useEffect, FormEvent } from "react";
 import { createVoicePlayer } from "@/lib/voice-playback";
-import { createSpeechRecognizer, isSupported as isSpeechSupported } from "@/lib/speech-recognition";
+import {
+  createSpeechRecognizer,
+  isSupported as isSpeechSupported,
+} from "@/lib/speech-recognition";
 
 export default function InputBar() {
-  const {
-    sessionId,
-    isMuted,
-    isLoading,
-    setLoading,
-    setCaption,
-    setSpeaking,
-    setThinking,
-    setListening,
-    setRemainingMessages,
-  } = useVelyraStore();
+  const sessionId = useVelyraStore((s) => s.sessionId);
+  const isMuted = useVelyraStore((s) => s.isMuted);
+  const isLoading = useVelyraStore((s) => s.isLoading);
+  const setLoading = useVelyraStore((s) => s.setLoading);
+  const setThinking = useVelyraStore((s) => s.setThinking);
+  const setListening = useVelyraStore((s) => s.setListening);
+  const setRemainingMessages = useVelyraStore((s) => s.setRemainingMessages);
+  const speakText = useVelyraStore((s) => s.speakText);
+  const stopSpeakingAction = useVelyraStore((s) => s.stopSpeakingAction);
+  const setCaption = useVelyraStore((s) => s.setCaption);
 
   const [input, setInput] = useState("");
-  const [history, setHistory] = useState<Array<{ role: string; content: string }>>([]);
+  const [history, setHistory] = useState<
+    Array<{ role: string; content: string }>
+  >([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const [isMicHeld, setIsMicHeld] = useState(false);
   const [micSupported, setMicSupported] = useState(true);
 
-  // Voice player (lazy init)
-  const voicePlayerRef = useRef<ReturnType<typeof createVoicePlayer> | null>(null);
+  // Ref for current muted state
+  const isMutedRef = useRef(isMuted);
+  isMutedRef.current = isMuted;
+
+  // Voice player
+  const voicePlayerRef = useRef<ReturnType<typeof createVoicePlayer> | null>(
+    null
+  );
   function getVoicePlayer() {
     if (!voicePlayerRef.current) {
       voicePlayerRef.current = createVoicePlayer(sessionId, {
-        onStart: () => setSpeaking(true),
-        onEnd: () => setSpeaking(false),
+        onStart: () => {}, // Speaking state managed by speakText now
+        onEnd: () => stopSpeakingAction(),
       });
     }
     return voicePlayerRef.current;
   }
 
-  // Speech recognizer (lazy init)
-  const recognizerRef = useRef<ReturnType<typeof createSpeechRecognizer> | null>(null);
+  const recognizerRef = useRef<ReturnType<
+    typeof createSpeechRecognizer
+  > | null>(null);
 
   useEffect(() => {
     setMicSupported(isSpeechSupported());
@@ -71,14 +82,20 @@ export default function InputBar() {
           { role: "assistant", content: data.reply },
         ]);
 
-        setCaption(data.reply);
+        // Start lip sync + show caption
+        speakText(data.reply);
 
         if (data.remainingMessages !== undefined) {
           setRemainingMessages(data.remainingMessages);
         }
 
-        if (!isMuted && !data.rateLimited) {
+        // Play voice if unmuted
+        if (!isMutedRef.current && !data.rateLimited) {
           getVoicePlayer().play(data.reply);
+        } else {
+          // No audio — simulate speaking duration then stop
+          const duration = Math.max(1500, data.reply.length * 50);
+          setTimeout(() => stopSpeakingAction(), duration);
         }
       } catch {
         setCaption("Something went wrong — please try again.");
@@ -87,19 +104,29 @@ export default function InputBar() {
         setThinking(false);
       }
     },
-    [isLoading, history, sessionId, isMuted, setLoading, setThinking, setCaption, setSpeaking, setRemainingMessages]
+    [
+      isLoading,
+      history,
+      sessionId,
+      setLoading,
+      setThinking,
+      setCaption,
+      speakText,
+      stopSpeakingAction,
+      setRemainingMessages,
+    ]
   );
 
   const handleSend = useCallback(
     (e?: FormEvent) => {
       e?.preventDefault();
+      if (!input.trim()) return;
       sendMessage(input);
       setInput("");
     },
     [input, sendMessage]
   );
 
-  // Mic hold handlers
   const handleMicDown = useCallback(() => {
     if (!micSupported || isLoading) return;
     setIsMicHeld(true);
@@ -134,7 +161,6 @@ export default function InputBar() {
   return (
     <form onSubmit={handleSend} className="relative w-full z-10">
       <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-full px-3 py-2">
-        {/* Mic button */}
         {micSupported && (
           <button
             type="button"
@@ -172,7 +198,6 @@ export default function InputBar() {
           </button>
         )}
 
-        {/* Text input */}
         <input
           ref={inputRef}
           type="text"
@@ -189,7 +214,6 @@ export default function InputBar() {
           className="flex-1 bg-transparent text-white text-sm placeholder-white/40 outline-none min-w-0"
         />
 
-        {/* Send button */}
         <button
           type="submit"
           disabled={isLoading || !input.trim()}
@@ -211,7 +235,6 @@ export default function InputBar() {
         </button>
       </div>
 
-      {/* Loading dots */}
       {isLoading && (
         <div className="flex justify-center gap-1 mt-2">
           {[0, 1, 2].map((i) => (

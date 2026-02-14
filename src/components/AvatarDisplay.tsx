@@ -8,16 +8,24 @@ export default function AvatarDisplay() {
   const avatarState = useVelyraStore((s) => s.avatarState);
   const [tick, setTick] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [currentFrame, setCurrentFrame] = useState("/avatars/default/idle.png");
 
   useEffect(() => {
     preloadAvatarFrames();
   }, []);
 
+  // Tick loop — faster when speaking for smooth lip sync
   useEffect(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
 
+    // Speaking uses time-based viseme lookup (not tick-based), 
+    // so we tick fast to keep it responsive
     const speed =
-      avatarState === "speaking" ? 140 : avatarState === "thinking" ? 400 : 200;
+      avatarState === "speaking"
+        ? 60   // 60ms = ~16fps lip sync
+        : avatarState === "thinking"
+        ? 300
+        : 150;
 
     intervalRef.current = setInterval(() => {
       setTick((t) => t + 1);
@@ -28,11 +36,15 @@ export default function AvatarDisplay() {
     };
   }, [avatarState]);
 
-  const frameSrc = getFrameForState(avatarState, tick);
+  // Update frame on tick
+  useEffect(() => {
+    const frame = getFrameForState(avatarState, tick);
+    setCurrentFrame(frame);
+  }, [tick, avatarState]);
 
   return (
     <div className="relative w-[220px] h-[220px] sm:w-[260px] sm:h-[260px] flex-shrink-0">
-      {/* Glow behind avatar */}
+      {/* Glow */}
       <div
         className={`absolute inset-0 rounded-full blur-2xl transition-all duration-700 ${
           avatarState === "speaking"
@@ -45,10 +57,10 @@ export default function AvatarDisplay() {
         }`}
       />
 
-      {/* Fixed-size image container — no layout shift */}
+      {/* Fixed container — image swaps inside, no layout shift */}
       <div className="absolute inset-0 flex items-center justify-center">
         <img
-          src={frameSrc}
+          src={currentFrame}
           alt="Velyra"
           width={260}
           height={260}
@@ -57,7 +69,7 @@ export default function AvatarDisplay() {
         />
       </div>
 
-      {/* State indicator */}
+      {/* State dot */}
       <div
         className={`absolute bottom-3 right-3 w-2.5 h-2.5 rounded-full transition-colors duration-300 ${
           avatarState === "speaking"

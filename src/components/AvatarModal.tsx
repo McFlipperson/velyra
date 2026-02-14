@@ -15,62 +15,61 @@ export default function AvatarModal() {
   const isOpen = useVelyraStore((s) => s.isOpen);
   const isMuted = useVelyraStore((s) => s.isMuted);
   const close = useVelyraStore((s) => s.close);
-  const setCaption = useVelyraStore((s) => s.setCaption);
-  const setSpeaking = useVelyraStore((s) => s.setSpeaking);
   const sessionId = useVelyraStore((s) => s.sessionId);
   const remainingMessages = useVelyraStore((s) => s.remainingMessages);
+  const speakText = useVelyraStore((s) => s.speakText);
+  const stopSpeakingAction = useVelyraStore((s) => s.stopSpeakingAction);
+  const setSpeaking = useVelyraStore((s) => s.setSpeaking);
   const hasGreeted = useRef(false);
 
-  // Stable ref for muted state so voice player can check current value
   const isMutedRef = useRef(isMuted);
   isMutedRef.current = isMuted;
 
-  const voicePlayerRef = useRef<ReturnType<typeof createVoicePlayer> | null>(
-    null
-  );
+  const voicePlayerRef = useRef<ReturnType<typeof createVoicePlayer> | null>(null);
   const getVoicePlayer = useCallback(() => {
     if (!voicePlayerRef.current) {
       voicePlayerRef.current = createVoicePlayer(sessionId, {
-        onStart: () => setSpeaking(true),
-        onEnd: () => setSpeaking(false),
+        onStart: () => {},
+        onEnd: () => stopSpeakingAction(),
       });
     }
     return voicePlayerRef.current;
-  }, [sessionId, setSpeaking]);
+  }, [sessionId, stopSpeakingAction]);
 
-  // Greet on first open
+  // Greet on first open — lip sync the greeting text
   useEffect(() => {
     if (isOpen && !hasGreeted.current) {
       hasGreeted.current = true;
-      setCaption(GREETING);
-      // Don't auto-play voice — user needs to unmute first (browser policy)
+      // Start lip sync animation
+      speakText(GREETING);
+      // Simulate speaking duration (no audio in muted mode)
+      const duration = Math.max(2000, GREETING.length * 50);
+      setTimeout(() => stopSpeakingAction(), duration);
     }
-  }, [isOpen, setCaption]);
+  }, [isOpen, speakText, stopSpeakingAction]);
 
-  // Toggle mute via store directly
   const handleToggleMute = useCallback(() => {
     const wasMuted = isMutedRef.current;
-    // Toggle in store
     useVelyraStore.getState().toggleMute();
 
     if (wasMuted) {
-      // Was muted, now unmuting — play greeting or current caption
+      // Unmuting — play current caption with voice
       const caption = useVelyraStore.getState().currentCaption;
       if (caption) {
+        speakText(caption);
         getVoicePlayer().play(caption);
       }
     } else {
-      // Was unmuted, now muting — stop audio
+      // Muting — stop everything
       getVoicePlayer().stop();
-      setSpeaking(false);
+      stopSpeakingAction();
     }
-  }, [getVoicePlayer, setSpeaking]);
+  }, [getVoicePlayer, speakText, stopSpeakingAction]);
 
   const handleClose = useCallback(() => {
     voicePlayerRef.current?.stop();
-    setSpeaking(false);
     close();
-  }, [close, setSpeaking]);
+  }, [close]);
 
   return (
     <AnimatePresence>
@@ -83,7 +82,7 @@ export default function AvatarModal() {
           className="fixed z-[60] bottom-0 right-0 sm:bottom-6 sm:right-6 w-full sm:w-[420px] pointer-events-none"
         >
           <div className="pointer-events-auto flex flex-col items-center pb-4 sm:pb-0">
-            {/* Top controls */}
+            {/* Controls */}
             <div className="w-full flex justify-between items-center px-4 mb-3">
               <button
                 onClick={handleToggleMute}
@@ -104,7 +103,7 @@ export default function AvatarModal() {
               </button>
             </div>
 
-            {/* Avatar — fixed size, centered */}
+            {/* Avatar */}
             <AvatarDisplay />
 
             {/* Captions */}
@@ -112,7 +111,7 @@ export default function AvatarModal() {
               <Captions />
             </div>
 
-            {/* Remaining messages */}
+            {/* Remaining */}
             {remainingMessages <= 10 && (
               <div className="text-[10px] text-white/30 mt-1">
                 {remainingMessages} messages remaining

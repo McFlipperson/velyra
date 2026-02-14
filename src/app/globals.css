@@ -26,8 +26,8 @@ body {
   75% { transform: rotate(-1deg) scale(1.01); }
 }
 
-/* Avatar breathing */
+/* Subtle idle breathing — very gentle, no layout shift */
 @keyframes breathe {
-  0%, 100% { transform: translateY(0) scale(1); }
-  50% { transform: translateY(-4px) scale(1.02); }
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
 }

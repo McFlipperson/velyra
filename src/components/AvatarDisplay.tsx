@@ -17,11 +17,7 @@ export default function AvatarDisplay() {
     if (intervalRef.current) clearInterval(intervalRef.current);
 
     const speed =
-      avatarState === "speaking"
-        ? 140
-        : avatarState === "thinking"
-        ? 400
-        : 200;
+      avatarState === "speaking" ? 140 : avatarState === "thinking" ? 400 : 200;
 
     intervalRef.current = setInterval(() => {
       setTick((t) => t + 1);
@@ -35,48 +31,44 @@ export default function AvatarDisplay() {
   const frameSrc = getFrameForState(avatarState, tick);
 
   return (
-    <div className="relative flex items-center justify-center h-full w-full">
-      {/* Ambient glow */}
-      <div className="absolute inset-0 bg-gradient-radial from-purple-900/20 via-transparent to-transparent" />
+    <div className="relative w-[220px] h-[220px] sm:w-[260px] sm:h-[260px] flex-shrink-0">
+      {/* Glow behind avatar */}
+      <div
+        className={`absolute inset-0 rounded-full blur-2xl transition-all duration-700 ${
+          avatarState === "speaking"
+            ? "bg-purple-500/20"
+            : avatarState === "listening"
+            ? "bg-cyan-400/15"
+            : avatarState === "thinking"
+            ? "bg-amber-400/10"
+            : "bg-purple-500/10"
+        }`}
+      />
 
-      {/* Avatar with breathing */}
-      <div className="relative animate-[breathe_4s_ease-in-out_infinite]">
-        {/* State glow ring */}
-        <div
-          className={`absolute -inset-6 rounded-full blur-2xl transition-all duration-500 ${
-            avatarState === "speaking"
-              ? "bg-purple-500/25 animate-[pulse_1.2s_ease-in-out_infinite]"
-              : avatarState === "listening"
-              ? "bg-cyan-400/20 animate-[pulse_2s_ease-in-out_infinite]"
-              : avatarState === "thinking"
-              ? "bg-amber-400/15 animate-[pulse_1.5s_ease-in-out_infinite]"
-              : "bg-purple-500/10"
-          }`}
-        />
-
-        {/* Avatar image — contain, not cover. No cropping. */}
-        <div className="relative w-52 h-64 sm:w-60 sm:h-72 flex items-center justify-center">
-          <img
-            src={frameSrc}
-            alt="Velyra"
-            className="max-w-full max-h-full object-contain drop-shadow-[0_0_20px_rgba(168,85,247,0.3)]"
-            draggable={false}
-          />
-        </div>
-
-        {/* State dot */}
-        <div
-          className={`absolute bottom-1 right-4 w-3 h-3 rounded-full border-2 border-transparent transition-colors duration-300 ${
-            avatarState === "speaking"
-              ? "bg-green-400 animate-pulse"
-              : avatarState === "listening"
-              ? "bg-cyan-400 animate-pulse"
-              : avatarState === "thinking"
-              ? "bg-amber-400 animate-pulse"
-              : "bg-gray-500/50"
-          }`}
+      {/* Fixed-size image container — no layout shift */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <img
+          src={frameSrc}
+          alt="Velyra"
+          width={260}
+          height={260}
+          className="w-full h-full object-contain drop-shadow-[0_0_20px_rgba(168,85,247,0.25)] pointer-events-none select-none"
+          draggable={false}
         />
       </div>
+
+      {/* State indicator */}
+      <div
+        className={`absolute bottom-3 right-3 w-2.5 h-2.5 rounded-full transition-colors duration-300 ${
+          avatarState === "speaking"
+            ? "bg-green-400 animate-pulse"
+            : avatarState === "listening"
+            ? "bg-cyan-400 animate-pulse"
+            : avatarState === "thinking"
+            ? "bg-amber-400 animate-pulse"
+            : "bg-white/20"
+        }`}
+      />
     </div>
   );
 }

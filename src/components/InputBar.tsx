@@ -2,8 +2,9 @@
 
 import { useVelyraStore } from "@/store/velyra-store";
 import { motion } from "framer-motion";
-import { useState, useCallback, useRef, FormEvent } from "react";
+import { useState, useCallback, useRef, useEffect, FormEvent } from "react";
 import { createVoicePlayer } from "@/lib/voice-playback";
+import { createSpeechRecognizer, isSupported as isSpeechSupported } from "@/lib/speech-recognition";
 
 export default function InputBar() {
   const {
@@ -14,12 +15,15 @@ export default function InputBar() {
     setCaption,
     setSpeaking,
     setThinking,
+    setListening,
     setRemainingMessages,
   } = useVelyraStore();
 
   const [input, setInput] = useState("");
   const [history, setHistory] = useState<Array<{ role: string; content: string }>>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [isMicHeld, setIsMicHeld] = useState(false);
+  const [micSupported, setMicSupported] = useState(true);
 
   // Voice player (lazy init)
   const voicePlayerRef = useRef<ReturnType<typeof createVoicePlayer> | null>(null);
@@ -33,13 +37,17 @@ export default function InputBar() {
     return voicePlayerRef.current;
   }
 
-  const handleSend = useCallback(
-    async (e?: FormEvent) => {
-      e?.preventDefault();
-      const trimmed = input.trim();
-      if (!trimmed || isLoading) return;
+  // Speech recognizer (lazy init)
+  const recognizerRef = useRef<ReturnType<typeof createSpeechRecognizer> | null>(null);
 
-      setInput("");
+  useEffect(() => {
+    setMicSupported(isSpeechSupported());
+  }, []);
+
+  const sendMessage = useCallback(
+    async (text: string) => {
+      if (!text.trim() || isLoading) return;
+
       setLoading(true);
       setThinking(true);
       setCaption(null);
@@ -49,7 +57,7 @@ export default function InputBar() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            message: trimmed,
+            message: text.trim(),
             history: history.slice(-10),
             sessionId,
           }),
@@ -57,22 +65,18 @@ export default function InputBar() {
 
         const data = await response.json();
 
-        // Update history
         setHistory((prev) => [
           ...prev,
-          { role: "user", content: trimmed },
+          { role: "user", content: text.trim() },
           { role: "assistant", content: data.reply },
         ]);
 
-        // Show caption
         setCaption(data.reply);
 
-        // Update remaining
         if (data.remainingMessages !== undefined) {
           setRemainingMessages(data.remainingMessages);
         }
 
-        // Play voice if not muted
         if (!isMuted && !data.rateLimited) {
           getVoicePlayer().play(data.reply);
         }
@@ -83,51 +87,90 @@ export default function InputBar() {
         setThinking(false);
       }
     },
-    [input, isLoading, history, sessionId, isMuted, setLoading, setThinking, setCaption, setSpeaking, setRemainingMessages]
+    [isLoading, history, sessionId, isMuted, setLoading, setThinking, setCaption, setSpeaking, setRemainingMessages]
   );
 
-  const [isMicHeld, setIsMicHeld] = useState(false);
+  const handleSend = useCallback(
+    (e?: FormEvent) => {
+      e?.preventDefault();
+      sendMessage(input);
+      setInput("");
+    },
+    [input, sendMessage]
+  );
+
+  // Mic hold handlers
+  const handleMicDown = useCallback(() => {
+    if (!micSupported || isLoading) return;
+    setIsMicHeld(true);
+    setListening(true);
+
+    if (!recognizerRef.current) {
+      recognizerRef.current = createSpeechRecognizer({
+        onResult: (transcript) => {
+          setIsMicHeld(false);
+          setListening(false);
+          sendMessage(transcript);
+        },
+        onEnd: () => {
+          setIsMicHeld(false);
+          setListening(false);
+        },
+        onError: () => {
+          setIsMicHeld(false);
+          setListening(false);
+        },
+      });
+    }
+    recognizerRef.current.start();
+  }, [micSupported, isLoading, setListening, sendMessage]);
+
+  const handleMicUp = useCallback(() => {
+    setIsMicHeld(false);
+    setListening(false);
+    recognizerRef.current?.stop();
+  }, [setListening]);
 
   return (
-    <form
-      onSubmit={handleSend}
-      className="relative w-full z-10"
-    >
+    <form onSubmit={handleSend} className="relative w-full z-10">
       <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-full px-3 py-2">
         {/* Mic button */}
-        <button
-          type="button"
-          onPointerDown={() => setIsMicHeld(true)}
-          onPointerUp={() => setIsMicHeld(false)}
-          onPointerLeave={() => setIsMicHeld(false)}
-          className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 ${
-            isMicHeld
-              ? "bg-red-500/80 scale-110"
-              : "bg-white/10 hover:bg-white/20"
-          }`}
-        >
-          {isMicHeld ? (
-            <motion.div
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ repeat: Infinity, duration: 0.6 }}
-              className="w-3 h-3 rounded-full bg-white"
-            />
-          ) : (
-            <svg
-              className="w-4 h-4 text-white/80"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z"
+        {micSupported && (
+          <button
+            type="button"
+            onPointerDown={handleMicDown}
+            onPointerUp={handleMicUp}
+            onPointerLeave={handleMicUp}
+            disabled={isLoading}
+            className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 ${
+              isMicHeld
+                ? "bg-red-500/80 scale-110"
+                : "bg-white/10 hover:bg-white/20"
+            } disabled:opacity-30`}
+          >
+            {isMicHeld ? (
+              <motion.div
+                animate={{ scale: [1, 1.2, 1] }}
+                transition={{ repeat: Infinity, duration: 0.6 }}
+                className="w-3 h-3 rounded-full bg-white"
               />
-            </svg>
-          )}
-        </button>
+            ) : (
+              <svg
+                className="w-4 h-4 text-white/80"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z"
+                />
+              </svg>
+            )}
+          </button>
+        )}
 
         {/* Text input */}
         <input
@@ -135,8 +178,14 @@ export default function InputBar() {
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={isLoading ? "Thinking..." : "Ask me anything..."}
-          disabled={isLoading}
+          placeholder={
+            isMicHeld
+              ? "Listening..."
+              : isLoading
+              ? "Thinking..."
+              : "Ask me anything..."
+          }
+          disabled={isLoading || isMicHeld}
           className="flex-1 bg-transparent text-white text-sm placeholder-white/40 outline-none min-w-0"
         />
 

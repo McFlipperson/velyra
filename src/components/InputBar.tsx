@@ -91,7 +91,7 @@ export default function InputBar() {
   return (
     <form
       onSubmit={handleSend}
-      className="absolute bottom-4 left-4 right-4 z-10"
+      className="relative w-full z-10"
     >
       <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-full px-3 py-2">
         {/* Mic button */}

@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0a0a1a;
+  --foreground: #ededed;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Lamp wobble */
+@keyframes wobble {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(-2deg) scale(1.02); }
+  50% { transform: rotate(1.5deg) scale(0.98); }
+  75% { transform: rotate(-1deg) scale(1.01); }
+}
+
+/* Avatar breathing */
+@keyframes breathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-4px) scale(1.02); }
+}

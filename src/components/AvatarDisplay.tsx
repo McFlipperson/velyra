@@ -8,7 +8,7 @@ export default function AvatarDisplay() {
   const avatarState = useVelyraStore((s) => s.avatarState);
   const [tick, setTick] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [currentFrame, setCurrentFrame] = useState("/avatars/default/idle.png");
+  const [currentFrame, setCurrentFrame] = useState("/avatars/default/A.png");
 
   useEffect(() => {
     preloadAvatarFrames();
@@ -18,14 +18,14 @@ export default function AvatarDisplay() {
   useEffect(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
 
-    // Speaking uses time-based viseme lookup (not tick-based), 
-    // so we tick fast to keep it responsive
     const speed =
       avatarState === "speaking"
         ? 60   // 60ms = ~16fps lip sync
         : avatarState === "thinking"
         ? 300
         : 150;
+
+    console.log(`⏱️ Tick loop started: ${avatarState} mode (${speed}ms interval)`);
 
     intervalRef.current = setInterval(() => {
       setTick((t) => t + 1);
@@ -39,8 +39,11 @@ export default function AvatarDisplay() {
   // Update frame on tick
   useEffect(() => {
     const frame = getFrameForState(avatarState, tick);
-    setCurrentFrame(frame);
-  }, [tick, avatarState]);
+    if (frame !== currentFrame) {
+      console.log(`🖼️ Display updating: ${currentFrame} → ${frame}`);
+      setCurrentFrame(frame);
+    }
+  }, [tick, avatarState, currentFrame]);
 
   return (
     <div className="relative w-[260px] h-[260px] flex-shrink-0">

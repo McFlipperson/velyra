@@ -20,14 +20,20 @@ const FRAMES = {
   thinking: "/avatars/default/thinking.png",
   lookingAway: "/avatars/default/looking-away.png",
   surprised: "/avatars/default/surprised.png",
-  // Viseme mouth shapes
-  mouthAh: "/avatars/default/mouth-ah.png",       // A, I — wide open
-  mouthOh: "/avatars/default/mouth-oh.png",        // O, U — rounded
-  mouthFv: "/avatars/default/mouth-fv.png",        // F, V — lip tucked
-  lipsClosed: "/avatars/default/lips-closed.png",   // M, B, P — lips pressed
-  talking: "/avatars/default/talking.png",           // E, schwa — mid open
-  smileTeeth: "/avatars/default/smile-teeth.png",   // EE, big smile
-  smileLight: "/avatars/default/smile-light.png",   // soft consonants, rest
+  // Viseme mouth shapes — primary
+  mouthAh: "/avatars/default/mouth-ah.png",         // A, I — wide open
+  mouthOh: "/avatars/default/mouth-oh.png",          // O, U — rounded
+  mouthOhSmall: "/avatars/default/mouth-oh-small.png", // Small O variant
+  mouthFv: "/avatars/default/mouth-fv.png",          // F, V — lip tucked under teeth
+  mouthL: "/avatars/default/mouth-l.png",            // L — tongue to upper teeth
+  mouthTh: "/avatars/default/mouth-th.png",          // TH — tongue between teeth
+  lipsClosed: "/avatars/default/lips-closed.png",    // M, B, P — lips pressed
+  talking: "/avatars/default/talking.png",            // E, schwa — mid open
+  mouthIh: "/avatars/default/mouth-ih.png",          // IH — narrow open
+  mouthUh: "/avatars/default/mouth-uh.png",          // UH — medium open
+  smileTeeth: "/avatars/default/smile-teeth.png",    // EE, big smile
+  mouthEeHard: "/avatars/default/mouth-ee-hard.png", // Hard E — stretched lips
+  smileLight: "/avatars/default/smile-light.png",    // soft consonants, rest
 } as const;
 
 // ── Viseme definitions ─────────────────────────────────────────
@@ -39,15 +45,27 @@ const VISEME_MAP = {
   AH: FRAMES.mouthAh,
   // Rounded mouth — "oh", "oo", "ow", "u"
   OH: FRAMES.mouthOh,
+  // Small rounded O
+  OH_SMALL: FRAMES.mouthOhSmall,
   // Teeth/smile — "ee", "ea", "i" (long)
   EE: FRAMES.smileTeeth,
+  // Hard E — stretched lips
+  EE_HARD: FRAMES.mouthEeHard,
   // Mid open — "eh", "e" (short), schwa sounds
   EH: FRAMES.talking,
+  // Narrow open — "ih"
+  IH: FRAMES.mouthIh,
+  // Medium open — "uh"
+  UH: FRAMES.mouthUh,
   // Lip tucked — "f", "v"
   FV: FRAMES.mouthFv,
   // Lips pressed — "m", "b", "p"
   MBP: FRAMES.lipsClosed,
-  // Soft/neutral — "t", "d", "n", "l", "s", "z", "th"
+  // L tongue to teeth
+  L: FRAMES.mouthL,
+  // TH tongue between teeth
+  TH: FRAMES.mouthTh,
+  // Soft/neutral — "t", "d", "n", "s", "z", "k", "g", etc.
   REST: FRAMES.smileLight,
   // Closed rest between words
   CLOSED: FRAMES.neutral,
@@ -84,7 +102,12 @@ export function textToVisemes(text: string): Array<{ frame: string; duration: nu
     }
 
     // Two-character patterns first
-    if (pair === "th" || pair === "sh" || pair === "ch") {
+    if (pair === "th") {
+      sequence.push({ frame: VISEME_MAP.TH, duration: VISEME_DURATION_MS });
+      i += 2;
+      continue;
+    }
+    if (pair === "sh" || pair === "ch") {
       sequence.push({ frame: VISEME_MAP.REST, duration: VISEME_DURATION_MS });
       i += 2;
       continue;
@@ -109,6 +132,16 @@ export function textToVisemes(text: string): Array<{ frame: string; duration: nu
       i += 2;
       continue;
     }
+    if (pair === "ih") {
+      sequence.push({ frame: VISEME_MAP.IH, duration: VISEME_DURATION_MS });
+      i += 2;
+      continue;
+    }
+    if (pair === "uh") {
+      sequence.push({ frame: VISEME_MAP.UH, duration: VISEME_DURATION_MS });
+      i += 2;
+      continue;
+    }
 
     // Single character mapping
     switch (ch) {
@@ -119,14 +152,14 @@ export function textToVisemes(text: string): Array<{ frame: string; duration: nu
         sequence.push({ frame: VISEME_MAP.EH, duration: VISEME_DURATION_MS });
         break;
       case "i":
-        // Long i = "eye" sound
-        sequence.push({ frame: VISEME_MAP.AH, duration: VISEME_DURATION_MS * 0.8 });
+        // Long i = "eye" sound → IH for short, AH for long
+        sequence.push({ frame: VISEME_MAP.IH, duration: VISEME_DURATION_MS * 0.8 });
         break;
       case "o":
-        sequence.push({ frame: VISEME_MAP.OH, duration: VISEME_DURATION_MS });
+        sequence.push({ frame: VISEME_MAP.OH_SMALL, duration: VISEME_DURATION_MS });
         break;
       case "u":
-        sequence.push({ frame: VISEME_MAP.OH, duration: VISEME_DURATION_MS * 0.9 });
+        sequence.push({ frame: VISEME_MAP.UH, duration: VISEME_DURATION_MS * 0.9 });
         break;
       case "y":
         sequence.push({ frame: VISEME_MAP.EE, duration: VISEME_DURATION_MS * 0.7 });
@@ -140,6 +173,9 @@ export function textToVisemes(text: string): Array<{ frame: string; duration: nu
       case "p":
         sequence.push({ frame: VISEME_MAP.MBP, duration: VISEME_DURATION_MS * 0.8 });
         break;
+      case "l":
+        sequence.push({ frame: VISEME_MAP.L, duration: VISEME_DURATION_MS });
+        break;
       case "w":
         sequence.push({ frame: VISEME_MAP.OH, duration: VISEME_DURATION_MS * 0.7 });
         break;
@@ -147,7 +183,7 @@ export function textToVisemes(text: string): Array<{ frame: string; duration: nu
         sequence.push({ frame: VISEME_MAP.EH, duration: VISEME_DURATION_MS * 0.8 });
         break;
       default:
-        // t, d, n, l, s, z, k, g, h, j, c, q, x
+        // t, d, n, s, z, k, g, h, j, c, q, x
         sequence.push({ frame: VISEME_MAP.REST, duration: VISEME_DURATION_MS * 0.6 });
         break;
     }

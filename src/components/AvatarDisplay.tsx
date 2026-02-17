@@ -3,7 +3,6 @@
 import { useVelyraStore } from "@/store/velyra-store";
 import { useEffect, useRef, useState } from "react";
 import { getFrameForState, preloadAvatarFrames } from "@/lib/avatar-engine";
-import HairFlow from "./HairFlow";
 
 const FRAME_PATHS = [
   "/avatars/default/A.png",
@@ -24,7 +23,6 @@ export default function AvatarDisplay() {
     preloadAvatarFrames();
   }, []);
 
-  // Tick loop — faster when speaking for smooth lip sync
   useEffect(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
 
@@ -44,7 +42,6 @@ export default function AvatarDisplay() {
     };
   }, [avatarState]);
 
-  // Update frame on tick
   useEffect(() => {
     const frame = getFrameForState(avatarState, tick);
     setCurrentFrame(frame);
@@ -52,7 +49,6 @@ export default function AvatarDisplay() {
 
   return (
     <div className="relative w-[260px] h-[260px] flex-shrink-0">
-      {/* Glow */}
       <div
         className={`absolute inset-0 rounded-full blur-2xl transition-all duration-700 ${
           avatarState === "speaking"
@@ -65,38 +61,23 @@ export default function AvatarDisplay() {
         }`}
       />
 
-      {/* Layer 1: Base image with flowing hair (canvas mesh deformation) */}
       <div className="absolute inset-0 flex items-center justify-center">
-        <HairFlow
-          imageSrc="/avatars/default/A.png"
-          maskSrc="/avatars/default/hair_mask.png"
-          width={260}
-          height={260}
-          className="absolute w-full h-full drop-shadow-[0_0_20px_rgba(168,85,247,0.25)] pointer-events-none select-none"
-        />
+        {FRAME_PATHS.map((path) => (
+          <img
+            key={path}
+            src={path}
+            alt="Velyra"
+            width={260}
+            height={260}
+            className="absolute w-full h-full object-contain drop-shadow-[0_0_20px_rgba(168,85,247,0.25)] pointer-events-none select-none"
+            style={{
+              opacity: currentFrame === path ? 1 : 0,
+            }}
+            draggable={false}
+          />
+        ))}
       </div>
 
-      {/* Layer 2: Mouth frames (lip sync overlay — only visible during speaking) */}
-      {avatarState === "speaking" && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          {FRAME_PATHS.map((path) => (
-            <img
-              key={path}
-              src={path}
-              alt=""
-              width={260}
-              height={260}
-              className="absolute w-full h-full object-contain pointer-events-none select-none"
-              style={{
-                opacity: currentFrame === path ? 1 : 0,
-              }}
-              draggable={false}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* State dot */}
       <div
         className={`absolute bottom-3 right-3 w-2.5 h-2.5 rounded-full transition-colors duration-300 ${
           avatarState === "speaking"

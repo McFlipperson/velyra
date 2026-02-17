@@ -8,7 +8,6 @@ import { tmpdir } from "os";
 
 const execAsync = promisify(exec);
 
-// ── Cost Controls ──────────────────────────────────────────────
 const MAX_LIPSYNC_REQUESTS_PER_SESSION = 20;
 const MAX_TEXT_LENGTH = 500;
 const COOLDOWN_MS = 3000;
@@ -24,8 +23,7 @@ async function callPolly(text: string): Promise<Buffer | null> {
       "@aws-sdk/client-polly"
     );
 
-    const region = process.env.AWS_REGION || "us-east-1";
-    const polly = new PollyClient({ region });
+    const polly = new PollyClient({ region: process.env.AWS_REGION || "us-east-1" });
 
     const command = new SynthesizeSpeechCommand({
       Engine: "neural",
@@ -38,7 +36,6 @@ async function callPolly(text: string): Promise<Buffer | null> {
     });
 
     const response = await polly.send(command);
-
     if (!response.AudioStream) return null;
 
     const chunks: Uint8Array[] = [];
@@ -53,31 +50,44 @@ async function callPolly(text: string): Promise<Buffer | null> {
   }
 }
 
-async function runRhubarb(audioPath: string): Promise<any> {
+async function runRhubarb(audioPath: string, dialogText?: string): Promise<any> {
+  const wavPath = audioPath.replace(".mp3", ".wav");
+  const dialogPath = audioPath.replace(".mp3", ".txt");
+  
   try {
-    console.log('🎤 Converting MP3 to WAV...');
-    // Convert MP3 to WAV (Rhubarb requirement)
-    const wavPath = audioPath.replace('.mp3', '.wav');
+    // Convert MP3 to WAV (Rhubarb only accepts WAV/OGG)
     await execAsync(
       `ffmpeg -i "${audioPath}" -ar 16000 -ac 1 -y "${wavPath}"`,
       { timeout: 10000 }
     );
 
-    console.log('👄 Running Rhubarb on WAV...');
-    // Run Rhubarb on WAV file (allow up to 30s for processing)
+    // Write dialog file for better recognition accuracy
+    let dialogFlag = "";
+    if (dialogText) {
+      await writeFile(dialogPath, dialogText, "utf-8");
+      dialogFlag = `-d "${dialogPath}"`;
+    }
+
+    // Run Rhubarb with:
+    //   -f json           → JSON output format
+    //   --extendedShapes "" → Basic shapes only (A-F), no G/H/X
+    //   -q                → Quiet mode (no progress spam on stderr)
+    //   -d <file>         → Dialog text for better accuracy
     const { stdout } = await execAsync(
-      `rhubarb -f json "${wavPath}"`,
+      `rhubarb -f json --extendedShapes "" -q ${dialogFlag} "${wavPath}"`,
       { timeout: 30000 }
     );
     
-    // Clean up WAV file
+    // Clean up temp files
     await unlink(wavPath).catch(() => {});
+    await unlink(dialogPath).catch(() => {});
     
     const result = JSON.parse(stdout);
-    console.log('✅ Rhubarb success:', result.mouthCues?.length, 'cues');
     return result;
   } catch (error) {
-    console.error("❌ Rhubarb error:", error);
+    console.error("Rhubarb error:", error);
+    await unlink(wavPath).catch(() => {});
+    await unlink(dialogPath).catch(() => {});
     return null;
   }
 }
@@ -99,7 +109,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ── Rate Limiting ────────────────────────────────────────
+    // Rate limiting
     const now = Date.now();
     let session = lipsyncSessions.get(sessionId);
 
@@ -127,11 +137,10 @@ export async function POST(request: NextRequest) {
 
     const truncatedText = text.slice(0, MAX_TEXT_LENGTH);
 
-    // Generate audio
+    // Generate audio via AWS Polly
     const audioBuffer = await callPolly(truncatedText);
 
     if (!audioBuffer) {
-      console.log("Polly unavailable — using fallback");
       return NextResponse.json({
         cues: [],
         audio: null,
@@ -146,12 +155,11 @@ export async function POST(request: NextRequest) {
 
     await writeFile(audioPath, audioBuffer);
 
-    // Run Rhubarb
-    const rhubarbOutput = await runRhubarb(audioPath);
+    // Run Rhubarb with dialog text for better accuracy
+    const rhubarbOutput = await runRhubarb(audioPath, truncatedText);
 
     if (!rhubarbOutput || !rhubarbOutput.mouthCues) {
-      console.log("Rhubarb failed — returning audio only");
-      // Clean up and return audio without lip sync data
+      // Rhubarb failed — return audio without lip sync
       await Promise.all(tempFiles.map((f) => unlink(f).catch(() => {})));
       
       return NextResponse.json({
@@ -161,10 +169,9 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Clean up temp files
+    // Clean up
     await Promise.all(tempFiles.map((f) => unlink(f).catch(() => {})));
 
-    // Return lip sync data + audio
     return NextResponse.json({
       cues: rhubarbOutput.mouthCues,
       audio: audioBuffer.toString("base64"),
@@ -172,8 +179,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Lip sync API error:", error);
-    
-    // Clean up temp files
     await Promise.all(tempFiles.map((f) => unlink(f).catch(() => {})));
 
     return NextResponse.json({

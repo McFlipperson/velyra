@@ -44,6 +44,9 @@ export default function AvatarModal() {
           });
 
           const lipsyncData = await lipsyncResponse.json();
+          
+          console.log("👋 Greeting lipsync data:", lipsyncData);
+          console.log("🔇 Mute state (greeting):", isMutedRef.current ? "MUTED" : "UNMUTED");
 
           if (lipsyncData.cues && lipsyncData.cues.length > 0) {
             // Use Rhubarb lip sync
@@ -53,6 +56,7 @@ export default function AvatarModal() {
 
             // Play audio if unmuted
             if (!isMutedRef.current && lipsyncData.audio) {
+              console.log("🔊 Playing greeting audio");
               const audioBlob = new Blob(
                 [Uint8Array.from(atob(lipsyncData.audio), c => c.charCodeAt(0))],
                 { type: "audio/mpeg" }
@@ -61,17 +65,22 @@ export default function AvatarModal() {
               const audio = new Audio(audioUrl);
               
               audio.onended = () => {
+                console.log("🔇 Greeting audio ended");
                 URL.revokeObjectURL(audioUrl);
                 stopSpeakingAction();
               };
               
-              audio.onerror = () => {
+              audio.onerror = (e) => {
+                console.error("❌ Greeting audio error:", e);
                 URL.revokeObjectURL(audioUrl);
                 stopSpeakingAction();
               };
               
-              audio.play();
+              audio.play().catch(err => {
+                console.error("❌ Greeting play() failed:", err);
+              });
             } else {
+              console.log("🔇 Greeting muted - animation only");
               // No audio but we have cues
               const duration = (lipsyncData.duration || 3) * 1000;
               setTimeout(() => stopSpeakingAction(), duration);

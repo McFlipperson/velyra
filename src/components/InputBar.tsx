@@ -85,38 +85,43 @@ export default function InputBar() {
             }),
           });
 
-          const lipsyncData = await lipsyncResponse.json();
+          console.log("📦 Lipsync data received:", lipsyncData);
+          console.log("✅ Using Rhubarb cues:", lipsyncData.cues.length, "phonemes");
+          console.log("🔇 Mute state:", isMutedRef.current ? "MUTED" : "UNMUTED");
 
           if (lipsyncData.cues && lipsyncData.cues.length > 0) {
             // Use Rhubarb lip sync
             const { startSpeakingWithCues } = await import("@/lib/avatar-engine");
             startSpeakingWithCues(lipsyncData.cues);
             useVelyraStore.setState({ isSpeaking: true, avatarState: "speaking" });
-          console.log("📦 Lipsync data received:", lipsyncData);
 
             // Play audio if unmuted and available
-            console.log("✅ Using Rhubarb cues:", lipsyncData.cues.length, "phonemes");
             if (!isMutedRef.current && lipsyncData.audio) {
+              console.log("🔊 Playing audio (unmuted)");
               const audioBlob = new Blob(
                 [Uint8Array.from(atob(lipsyncData.audio), c => c.charCodeAt(0))],
                 { type: "audio/mpeg" }
               );
-              console.log("🔊 Playing audio (unmuted)");
               const audioUrl = URL.createObjectURL(audioBlob);
               const audio = new Audio(audioUrl);
               
               audio.onended = () => {
+                console.log("🔇 Audio ended");
                 URL.revokeObjectURL(audioUrl);
                 stopSpeakingAction();
               };
               
-              audio.onerror = () => {
+              audio.onerror = (e) => {
+                console.error("❌ Audio playback error:", e);
                 URL.revokeObjectURL(audioUrl);
                 stopSpeakingAction();
               };
               
-              await audio.play();
+              await audio.play().catch(err => {
+                console.error("❌ Audio play() failed:", err);
+              });
             } else {
+              console.log("🔇 Muted mode - animation only");
               // No audio but we have cues - auto-stop after duration
               const duration = (lipsyncData.duration || 2) * 1000;
               setTimeout(() => stopSpeakingAction(), duration);

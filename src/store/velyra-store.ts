@@ -35,7 +35,7 @@ interface VelyraStore {
 
 export const useVelyraStore = create<VelyraStore>((set) => ({
   isOpen: false,
-  isMuted: true,
+  isMuted: false,  // Start unmuted so audio plays by default
   isListening: false,
   isSpeaking: false,
   isThinking: false,

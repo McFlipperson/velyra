@@ -36,22 +36,72 @@ export default function AvatarModal() {
     return voicePlayerRef.current;
   }, [sessionId, stopSpeakingAction]);
 
-  // Greet on first open — lip sync the greeting text
+  // Greet on first open — use Rhubarb lip sync
   useEffect(() => {
     if (isOpen && !hasGreeted.current) {
       hasGreeted.current = true;
       
       // Small delay to ensure frames are loaded
-      setTimeout(() => {
-        // Start lip sync animation
-        speakText(GREETING);
+      setTimeout(async () => {
+        useVelyraStore.setState({ currentCaption: GREETING });
         
-        // Simulate speaking duration (no audio in muted mode)
-        const duration = Math.max(3000, GREETING.length * 60);
-        setTimeout(() => stopSpeakingAction(), duration);
+        try {
+          // Get lip sync data for greeting
+          const lipsyncResponse = await fetch("/api/lipsync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              text: GREETING,
+              sessionId,
+            }),
+          });
+
+          const lipsyncData = await lipsyncResponse.json();
+
+          if (lipsyncData.cues && lipsyncData.cues.length > 0) {
+            // Use Rhubarb lip sync
+            const { startSpeakingWithCues } = await import("@/lib/avatar-engine");
+            startSpeakingWithCues(lipsyncData.cues);
+            useVelyraStore.setState({ isSpeaking: true, avatarState: "speaking" });
+
+            // Play audio if unmuted
+            if (!isMutedRef.current && lipsyncData.audio) {
+              const audioBlob = new Blob(
+                [Uint8Array.from(atob(lipsyncData.audio), c => c.charCodeAt(0))],
+                { type: "audio/mpeg" }
+              );
+              const audioUrl = URL.createObjectURL(audioBlob);
+              const audio = new Audio(audioUrl);
+              
+              audio.onended = () => {
+                URL.revokeObjectURL(audioUrl);
+                stopSpeakingAction();
+              };
+              
+              audio.onerror = () => {
+                URL.revokeObjectURL(audioUrl);
+                stopSpeakingAction();
+              };
+              
+              audio.play();
+            } else {
+              // No audio but we have cues
+              const duration = (lipsyncData.duration || 3) * 1000;
+              setTimeout(() => stopSpeakingAction(), duration);
+            }
+          } else {
+            // Fallback
+            speakText(GREETING);
+            setTimeout(() => stopSpeakingAction(), 3000);
+          }
+        } catch {
+          // Fallback on error
+          speakText(GREETING);
+          setTimeout(() => stopSpeakingAction(), 3000);
+        }
       }, 300);
     }
-  }, [isOpen, speakText, stopSpeakingAction]);
+  }, [isOpen, sessionId, speakText, stopSpeakingAction]);
 
   const handleToggleMute = useCallback(() => {
     const wasMuted = isMutedRef.current;

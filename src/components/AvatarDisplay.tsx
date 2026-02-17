@@ -37,10 +37,8 @@ export default function AvatarDisplay() {
   // Update frame on tick
   useEffect(() => {
     const frame = getFrameForState(avatarState, tick);
-    if (frame !== currentFrame) {
-      setCurrentFrame(frame);
-    }
-  }, [tick, avatarState, currentFrame]);
+    setCurrentFrame(frame);
+  }, [tick, avatarState]);
 
   return (
     <div className="relative w-[260px] h-[260px] flex-shrink-0">

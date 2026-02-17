@@ -55,10 +55,22 @@ async function callPolly(text: string): Promise<Buffer | null> {
 
 async function runRhubarb(audioPath: string): Promise<any> {
   try {
+    // Convert MP3 to WAV (Rhubarb requirement)
+    const wavPath = audioPath.replace('.mp3', '.wav');
+    await execAsync(
+      `ffmpeg -i "${audioPath}" -ar 16000 -ac 1 -y "${wavPath}"`,
+      { timeout: 5000 }
+    );
+
+    // Run Rhubarb on WAV file
     const { stdout } = await execAsync(
-      `rhubarb -f json --extendedShapes GX "${audioPath}"`,
+      `rhubarb -f json --extendedShapes GX "${wavPath}"`,
       { timeout: 10000 }
     );
+    
+    // Clean up WAV file
+    await unlink(wavPath).catch(() => {});
+    
     return JSON.parse(stdout);
   } catch (error) {
     console.error("Rhubarb error:", error);

@@ -21,6 +21,9 @@ export default function AvatarDisplay() {
 
   useEffect(() => {
     preloadAvatarFrames();
+    // Preload hair layer too
+    const img = new Image();
+    img.src = "/avatars/default/hair.png";
   }, []);
 
   // Tick loop — faster when speaking for smooth lip sync
@@ -29,7 +32,7 @@ export default function AvatarDisplay() {
 
     const speed =
       avatarState === "speaking"
-        ? 60   // ~16fps lip sync
+        ? 60
         : avatarState === "thinking"
         ? 300
         : 150;
@@ -64,16 +67,40 @@ export default function AvatarDisplay() {
         }`}
       />
 
-      {/* Avatar frames — all stacked, only active one visible */}
+      {/* Layer 1: Static body (A.png base — never moves) */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <img
+          src="/avatars/default/A.png"
+          alt="Velyra"
+          width={260}
+          height={260}
+          className="absolute w-full h-full object-contain drop-shadow-[0_0_20px_rgba(168,85,247,0.25)] pointer-events-none select-none"
+          draggable={false}
+        />
+      </div>
+
+      {/* Layer 2: Floating hair (CSS animated) */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <img
+          src="/avatars/default/hair.png"
+          alt=""
+          width={260}
+          height={260}
+          className="absolute w-full h-full object-contain pointer-events-none select-none animate-hair-float"
+          draggable={false}
+        />
+      </div>
+
+      {/* Layer 3: Mouth frames (lip sync overlay) */}
       <div className="absolute inset-0 flex items-center justify-center">
         {FRAME_PATHS.map((path) => (
           <img
             key={path}
             src={path}
-            alt="Velyra"
+            alt=""
             width={260}
             height={260}
-            className="absolute w-full h-full object-contain drop-shadow-[0_0_20px_rgba(168,85,247,0.25)] pointer-events-none select-none"
+            className="absolute w-full h-full object-contain pointer-events-none select-none"
             style={{
               opacity: currentFrame === path ? 1 : 0,
             }}

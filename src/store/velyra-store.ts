@@ -60,9 +60,9 @@ export const useVelyraStore = create<VelyraStore>((set) => ({
     set({ isSpeaking, avatarState: isSpeaking ? "speaking" : "idle" });
   },
   setListening: (isListening) =>
-    set({ isListening, avatarState: isListening ? "listening" : "idle" }),
+    set((s) => ({ isListening, avatarState: isListening ? "listening" : s.isSpeaking ? "speaking" : "idle" })),
   setThinking: (isThinking) =>
-    set({ isThinking, avatarState: isThinking ? "thinking" : "idle" }),
+    set((s) => ({ isThinking, avatarState: isThinking ? "thinking" : s.isSpeaking ? "speaking" : "idle" })),
   setRemainingMessages: (remainingMessages) => set({ remainingMessages }),
 
   // Start lip sync from text

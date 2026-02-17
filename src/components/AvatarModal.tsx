@@ -30,8 +30,7 @@ export default function AvatarModal() {
       hasGreeted.current = true;
       
       setTimeout(async () => {
-        // Show thinking state while API processes
-        useVelyraStore.setState({ avatarState: "thinking" });
+        // Stay idle while loading — no thinking animation before greeting
         
         try {
           const lipsyncResponse = await fetch("/api/lipsync", {

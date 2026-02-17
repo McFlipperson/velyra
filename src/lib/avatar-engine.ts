@@ -73,10 +73,7 @@ export function preloadAvatarFrames(): void {
 
 // ── State-based getters ────────────────────────────────────────
 export function getIdleFrame(tick: number): string {
-  // Subtle blink: occasionally show B (barely parted) 
-  const blinkCycle = 40 + (tick % 10);
-  const isBlinking = tick % blinkCycle < 2;
-  return isBlinking ? FRAMES.B : FRAMES.A;
+  return FRAMES.A;
 }
 
 export function getListeningFrame(): string {
@@ -84,8 +81,7 @@ export function getListeningFrame(): string {
 }
 
 export function getThinkingFrame(tick: number): string {
-  const phase = tick % 40;
-  return phase < 20 ? FRAMES.A : FRAMES.E;
+  return FRAMES.A;
 }
 
 export function getFrameForState(state: AvatarState, tick: number): string {

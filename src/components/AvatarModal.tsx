@@ -6,7 +6,6 @@ import { useEffect, useRef, useCallback } from "react";
 import AvatarDisplay from "./AvatarDisplay";
 import Captions from "./Captions";
 import InputBar from "./InputBar";
-import { createVoicePlayer } from "@/lib/voice-playback";
 
 const GREETING =
   "Hey there! I'm Velyra, your AI concierge. What can I help you with?";
@@ -19,22 +18,10 @@ export default function AvatarModal() {
   const remainingMessages = useVelyraStore((s) => s.remainingMessages);
   const speakText = useVelyraStore((s) => s.speakText);
   const stopSpeakingAction = useVelyraStore((s) => s.stopSpeakingAction);
-  const setSpeaking = useVelyraStore((s) => s.setSpeaking);
   const hasGreeted = useRef(false);
 
   const isMutedRef = useRef(isMuted);
   isMutedRef.current = isMuted;
-
-  const voicePlayerRef = useRef<ReturnType<typeof createVoicePlayer> | null>(null);
-  const getVoicePlayer = useCallback(() => {
-    if (!voicePlayerRef.current) {
-      voicePlayerRef.current = createVoicePlayer(sessionId, {
-        onStart: () => {},
-        onEnd: () => stopSpeakingAction(),
-      });
-    }
-    return voicePlayerRef.current;
-  }, [sessionId, stopSpeakingAction]);
 
   // Greet on first open — use Rhubarb lip sync
   useEffect(() => {
@@ -104,27 +91,13 @@ export default function AvatarModal() {
   }, [isOpen, sessionId, speakText, stopSpeakingAction]);
 
   const handleToggleMute = useCallback(() => {
-    const wasMuted = isMutedRef.current;
     useVelyraStore.getState().toggleMute();
-
-    if (wasMuted) {
-      // Unmuting — play current caption with voice
-      const caption = useVelyraStore.getState().currentCaption;
-      if (caption) {
-        speakText(caption);
-        getVoicePlayer().play(caption);
-      }
-    } else {
-      // Muting — stop everything
-      getVoicePlayer().stop();
-      stopSpeakingAction();
-    }
-  }, [getVoicePlayer, speakText, stopSpeakingAction]);
+  }, []);
 
   const handleClose = useCallback(() => {
-    voicePlayerRef.current?.stop();
+    stopSpeakingAction();
     close();
-  }, [close]);
+  }, [close, stopSpeakingAction]);
 
   return (
     <AnimatePresence>

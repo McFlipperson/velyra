@@ -3,7 +3,6 @@
 import { useVelyraStore } from "@/store/velyra-store";
 import { motion } from "framer-motion";
 import { useState, useCallback, useRef, useEffect, FormEvent } from "react";
-import { createVoicePlayer } from "@/lib/voice-playback";
 import {
   createSpeechRecognizer,
   isSupported as isSpeechSupported,
@@ -29,23 +28,8 @@ export default function InputBar() {
   const [isMicHeld, setIsMicHeld] = useState(false);
   const [micSupported, setMicSupported] = useState(true);
 
-  // Ref for current muted state
   const isMutedRef = useRef(isMuted);
   isMutedRef.current = isMuted;
-
-  // Voice player
-  const voicePlayerRef = useRef<ReturnType<typeof createVoicePlayer> | null>(
-    null
-  );
-  function getVoicePlayer() {
-    if (!voicePlayerRef.current) {
-      voicePlayerRef.current = createVoicePlayer(sessionId, {
-        onStart: () => {}, // Speaking state managed by speakText now
-        onEnd: () => stopSpeakingAction(),
-      });
-    }
-    return voicePlayerRef.current;
-  }
 
   const recognizerRef = useRef<ReturnType<
     typeof createSpeechRecognizer

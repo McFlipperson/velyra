@@ -55,6 +55,7 @@ async function callPolly(text: string): Promise<Buffer | null> {
 
 async function runRhubarb(audioPath: string): Promise<any> {
   try {
+    console.log('🎤 Converting MP3 to WAV...');
     // Convert MP3 to WAV (Rhubarb requirement)
     const wavPath = audioPath.replace('.mp3', '.wav');
     await execAsync(
@@ -62,6 +63,7 @@ async function runRhubarb(audioPath: string): Promise<any> {
       { timeout: 5000 }
     );
 
+    console.log('👄 Running Rhubarb on WAV...');
     // Run Rhubarb on WAV file
     const { stdout } = await execAsync(
       `rhubarb -f json --extendedShapes GX "${wavPath}"`,
@@ -71,9 +73,11 @@ async function runRhubarb(audioPath: string): Promise<any> {
     // Clean up WAV file
     await unlink(wavPath).catch(() => {});
     
-    return JSON.parse(stdout);
+    const result = JSON.parse(stdout);
+    console.log('✅ Rhubarb success:', result.mouthCues?.length, 'cues');
+    return result;
   } catch (error) {
-    console.error("Rhubarb error:", error);
+    console.error("❌ Rhubarb error:", error);
     return null;
   }
 }

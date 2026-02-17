@@ -29,6 +29,8 @@ let playbackStartTime = 0;
 let isPlaying = false;
 
 export function startSpeakingWithCues(cues: MouthCue[]): void {
+  console.log('🎬 Starting Rhubarb playback with', cues.length, 'cues');
+  console.log('Cues:', cues);
   currentCues = cues;
   playbackStartTime = Date.now();
   isPlaying = true;
@@ -37,12 +39,14 @@ export function startSpeakingWithCues(cues: MouthCue[]): void {
 export function advanceSpeaking(): string {
   if (!isPlaying || currentCues.length === 0) return FRAMES.A;
 
-  const elapsed = (Date.now() - playbackStartTime) / 1000; // Convert to seconds
+  const elapsed = (Date.now() - playbackStartTime) / 1000;
 
   // Find the current cue based on elapsed time
   for (const cue of currentCues) {
     if (elapsed >= cue.start && elapsed < cue.end) {
-      return FRAMES[cue.value] || FRAMES.A;
+      const frame = FRAMES[cue.value] || FRAMES.A;
+      // console.log(`⏱️ ${elapsed.toFixed(2)}s → ${cue.value} (${frame})`);
+      return frame;
     }
   }
 

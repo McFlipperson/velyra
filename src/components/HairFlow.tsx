@@ -17,15 +17,15 @@ interface HairFlowProps {
 }
 
 // Mesh grid resolution (lower = faster, higher = smoother)
-const GRID_COLS = 24;
-const GRID_ROWS = 24;
+const GRID_COLS = 20;
+const GRID_ROWS = 20;
 
 // Animation parameters
-const FLOW_SPEED = 0.8;      // How fast the wave moves
-const FLOW_AMOUNT_X = 2.5;   // Max horizontal displacement in pixels
-const FLOW_AMOUNT_Y = 1.5;   // Max vertical displacement in pixels
-const WAVE_FREQ_X = 3.0;     // Horizontal wave frequency
-const WAVE_FREQ_Y = 2.0;     // Vertical wave frequency
+const FLOW_SPEED = 0.6;      // How fast the wave moves
+const FLOW_AMOUNT_X = 6.0;   // Max horizontal displacement in pixels
+const FLOW_AMOUNT_Y = 3.5;   // Max vertical displacement in pixels
+const WAVE_FREQ_X = 2.0;     // Horizontal wave frequency
+const WAVE_FREQ_Y = 1.5;     // Vertical wave frequency
 
 export default function HairFlow({ imageSrc, maskSrc, width, height, className }: HairFlowProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -136,9 +136,11 @@ export default function HairFlow({ imageSrc, maskSrc, width, height, className }
         const centerY = (gy + 0.5) / GRID_ROWS;
         
         const dx = Math.sin(t + centerY * WAVE_FREQ_Y * Math.PI * 2 + centerX * 1.5) 
-                 * FLOW_AMOUNT_X * avgInfluence;
+                 * FLOW_AMOUNT_X * avgInfluence
+                 + Math.sin(t * 1.3 + centerY * 3.5) * 2.0 * avgInfluence;
         const dy = Math.cos(t * 0.7 + centerX * WAVE_FREQ_X * Math.PI * 2 + centerY * 1.2) 
-                 * FLOW_AMOUNT_Y * avgInfluence;
+                 * FLOW_AMOUNT_Y * avgInfluence
+                 + Math.cos(t * 0.5 + centerX * 2.8) * 1.5 * avgInfluence;
 
         // Draw displaced cell
         ctx.drawImage(img, sx, sy, srcCellW, srcCellH,

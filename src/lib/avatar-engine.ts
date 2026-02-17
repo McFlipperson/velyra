@@ -1,144 +1,73 @@
 /**
- * Avatar animation engine v4 — Rhubarb 8-frame lip sync
- * Using Preston Blair phoneme set (A-H)
+ * Avatar animation engine v5 — Rhubarb timestamp-based lip sync
  */
 
 export type AvatarState = "idle" | "listening" | "thinking" | "speaking";
 
-// ── Rhubarb frame paths (A-H) ──────────────────────────────────
+// ── Rhubarb frame paths (A-H + extended X, G) ──────────────────
 const FRAMES = {
-  A: "/avatars/default/A.png",  // Rest position
+  A: "/avatars/default/A.png",  // Rest
   B: "/avatars/default/B.png",  // M, B, P
-  C: "/avatars/default/C.png",  // E, I (wide smile)
-  D: "/avatars/default/D.png",  // A, AI (jaw dropped)
+  C: "/avatars/default/C.png",  // E, I
+  D: "/avatars/default/D.png",  // A, AI
   E: "/avatars/default/E.png",  // O
-  F: "/avatars/default/F.png",  // U, OO (pucker)
+  F: "/avatars/default/F.png",  // U, OO
   G: "/avatars/default/G.png",  // F, V
   H: "/avatars/default/H.png",  // L, TH, N
+  X: "/avatars/default/A.png",  // Extended rest (fallback to A)
 } as const;
 
-const PHONEME_DURATION_MS = 150;
-const PAUSE_DURATION_MS = 120;
-
-// ── Simple text-to-phoneme mapper ─────────────────────────────
-export function textToPhonemes(text: string): Array<{ frame: string; duration: number }> {
-  const sequence: Array<{ frame: string; duration: number }> = [];
-  const lower = text.toLowerCase();
-  let i = 0;
-
-  while (i < lower.length) {
-    const ch = lower[i];
-    const next = lower[i + 1] || "";
-    const pair = ch + next;
-
-    // Skip non-letters
-    if (!/[a-z]/.test(ch)) {
-      if (ch === " " || ch === "," || ch === "." || ch === "!" || ch === "?") {
-        sequence.push({ frame: FRAMES.A, duration: PAUSE_DURATION_MS });
-      }
-      i++;
-      continue;
-    }
-
-    // Two-letter patterns
-    if (pair === "th") {
-      sequence.push({ frame: FRAMES.H, duration: PHONEME_DURATION_MS });
-      i += 2;
-      continue;
-    }
-    if (pair === "ee" || pair === "ea") {
-      sequence.push({ frame: FRAMES.C, duration: PHONEME_DURATION_MS * 1.2 });
-      i += 2;
-      continue;
-    }
-    if (pair === "oo" || pair === "ou") {
-      sequence.push({ frame: FRAMES.F, duration: PHONEME_DURATION_MS * 1.2 });
-      i += 2;
-      continue;
-    }
-    if (pair === "ai" || pair === "ay") {
-      sequence.push({ frame: FRAMES.D, duration: PHONEME_DURATION_MS * 1.2 });
-      i += 2;
-      continue;
-    }
-
-    // Single character mapping
-    switch (ch) {
-      case "a":
-        sequence.push({ frame: FRAMES.D, duration: PHONEME_DURATION_MS });
-        break;
-      case "e":
-      case "i":
-        sequence.push({ frame: FRAMES.C, duration: PHONEME_DURATION_MS });
-        break;
-      case "o":
-        sequence.push({ frame: FRAMES.E, duration: PHONEME_DURATION_MS });
-        break;
-      case "u":
-        sequence.push({ frame: FRAMES.F, duration: PHONEME_DURATION_MS });
-        break;
-      case "m":
-      case "b":
-      case "p":
-        sequence.push({ frame: FRAMES.B, duration: PHONEME_DURATION_MS });
-        break;
-      case "f":
-      case "v":
-        sequence.push({ frame: FRAMES.G, duration: PHONEME_DURATION_MS });
-        break;
-      case "l":
-      case "n":
-        sequence.push({ frame: FRAMES.H, duration: PHONEME_DURATION_MS });
-        break;
-      case "w":
-      case "r":
-        sequence.push({ frame: FRAMES.F, duration: PHONEME_DURATION_MS * 0.8 });
-        break;
-      default:
-        // Other consonants → slight open
-        sequence.push({ frame: FRAMES.A, duration: PHONEME_DURATION_MS * 0.7 });
-        break;
-    }
-    i++;
-  }
-
-  return sequence;
-}
+type MouthCue = {
+  start: number;
+  end: number;
+  value: keyof typeof FRAMES;
+};
 
 // ── Playback state ─────────────────────────────────────────────
-let currentSequence: Array<{ frame: string; duration: number }> = [];
-let sequenceStartTime = 0;
+let currentCues: MouthCue[] = [];
+let playbackStartTime = 0;
+let isPlaying = false;
 
-export function startSpeaking(text: string): void {
-  currentSequence = textToPhonemes(text);
-  sequenceStartTime = Date.now();
+export function startSpeakingWithCues(cues: MouthCue[]): void {
+  currentCues = cues;
+  playbackStartTime = Date.now();
+  isPlaying = true;
 }
 
 export function advanceSpeaking(): string {
-  if (currentSequence.length === 0) return FRAMES.A;
+  if (!isPlaying || currentCues.length === 0) return FRAMES.A;
 
-  const elapsed = Date.now() - sequenceStartTime;
-  let accumulated = 0;
+  const elapsed = (Date.now() - playbackStartTime) / 1000; // Convert to seconds
 
-  for (let i = 0; i < currentSequence.length; i++) {
-    accumulated += currentSequence[i].duration;
-    if (elapsed < accumulated) {
-      return currentSequence[i].frame as string;
+  // Find the current cue based on elapsed time
+  for (const cue of currentCues) {
+    if (elapsed >= cue.start && elapsed < cue.end) {
+      return FRAMES[cue.value] || FRAMES.A;
     }
   }
 
+  // Past all cues
   return FRAMES.A;
 }
 
 export function stopSpeaking(): void {
-  currentSequence = [];
+  currentCues = [];
+  isPlaying = false;
+}
+
+export function isSpeakingActive(): boolean {
+  if (!isPlaying) return false;
+  const elapsed = (Date.now() - playbackStartTime) / 1000;
+  const lastCue = currentCues[currentCues.length - 1];
+  return !lastCue || elapsed < lastCue.end;
 }
 
 // ── Preload ────────────────────────────────────────────────────
 const ALL_FRAMES = Object.values(FRAMES);
 
 export function preloadAvatarFrames(): void {
-  ALL_FRAMES.forEach((src) => {
+  const uniqueFrames = [...new Set(ALL_FRAMES)];
+  uniqueFrames.forEach((src) => {
     const img = new Image();
     img.src = src;
   });
@@ -146,10 +75,9 @@ export function preloadAvatarFrames(): void {
 
 // ── State-based getters ────────────────────────────────────────
 export function getIdleFrame(tick: number): string {
-  // Blink occasionally
   const blinkCycle = 40 + (tick % 10);
   const isBlinking = tick % blinkCycle < 2;
-  return isBlinking ? FRAMES.B : FRAMES.A;  // Use B (lips closed) for blink
+  return isBlinking ? FRAMES.B : FRAMES.A;
 }
 
 export function getListeningFrame(tick: number): string {
@@ -173,4 +101,20 @@ export function getFrameForState(state: AvatarState, tick: number): string {
     default:
       return getIdleFrame(tick);
   }
+}
+
+// Legacy text-based fallback (for when Rhubarb fails)
+export function startSpeaking(text: string): void {
+  // Simple fallback - just alternate between a few shapes
+  const duration = Math.max(2000, text.length * 50);
+  const shapes: Array<keyof typeof FRAMES> = ['A', 'D', 'C', 'E', 'B', 'A'];
+  const cueLength = duration / shapes.length / 1000;
+  
+  const fallbackCues: MouthCue[] = shapes.map((shape, i) => ({
+    start: i * cueLength,
+    end: (i + 1) * cueLength,
+    value: shape,
+  }));
+  
+  startSpeakingWithCues(fallbackCues);
 }

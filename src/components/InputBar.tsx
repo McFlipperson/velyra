@@ -64,7 +64,8 @@ export default function InputBar() {
       setCaption(null);
 
       try {
-        const response = await fetch("/api/chat", {
+        // Get chat response
+        const chatResponse = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -74,27 +75,74 @@ export default function InputBar() {
           }),
         });
 
-        const data = await response.json();
+        const chatData = await chatResponse.json();
 
         setHistory((prev) => [
           ...prev,
           { role: "user", content: text.trim() },
-          { role: "assistant", content: data.reply },
+          { role: "assistant", content: chatData.reply },
         ]);
 
-        // Start lip sync + show caption
-        speakText(data.reply);
+        // Show caption
+        setCaption(chatData.reply);
 
-        if (data.remainingMessages !== undefined) {
-          setRemainingMessages(data.remainingMessages);
+        if (chatData.remainingMessages !== undefined) {
+          setRemainingMessages(chatData.remainingMessages);
         }
 
-        // Play voice if unmuted
-        if (!isMutedRef.current && !data.rateLimited) {
-          getVoicePlayer().play(data.reply);
+        // Get lip sync data + audio
+        if (!chatData.rateLimited) {
+          const lipsyncResponse = await fetch("/api/lipsync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              text: chatData.reply,
+              sessionId,
+            }),
+          });
+
+          const lipsyncData = await lipsyncResponse.json();
+
+          if (lipsyncData.cues && lipsyncData.cues.length > 0) {
+            // Use Rhubarb lip sync
+            const { startSpeakingWithCues } = await import("@/lib/avatar-engine");
+            startSpeakingWithCues(lipsyncData.cues);
+            useVelyraStore.setState({ isSpeaking: true, avatarState: "speaking" });
+
+            // Play audio if unmuted and available
+            if (!isMutedRef.current && lipsyncData.audio) {
+              const audioBlob = new Blob(
+                [Uint8Array.from(atob(lipsyncData.audio), c => c.charCodeAt(0))],
+                { type: "audio/mpeg" }
+              );
+              const audioUrl = URL.createObjectURL(audioBlob);
+              const audio = new Audio(audioUrl);
+              
+              audio.onended = () => {
+                URL.revokeObjectURL(audioUrl);
+                stopSpeakingAction();
+              };
+              
+              audio.onerror = () => {
+                URL.revokeObjectURL(audioUrl);
+                stopSpeakingAction();
+              };
+              
+              await audio.play();
+            } else {
+              // No audio but we have cues - auto-stop after duration
+              const duration = (lipsyncData.duration || 2) * 1000;
+              setTimeout(() => stopSpeakingAction(), duration);
+            }
+          } else {
+            // Fallback to simple animation
+            speakText(chatData.reply);
+            const duration = Math.max(1500, chatData.reply.length * 50);
+            setTimeout(() => stopSpeakingAction(), duration);
+          }
         } else {
-          // No audio — simulate speaking duration then stop
-          const duration = Math.max(1500, data.reply.length * 50);
+          // Rate limited, just show text
+          const duration = Math.max(1500, chatData.reply.length * 50);
           setTimeout(() => stopSpeakingAction(), duration);
         }
       } catch {

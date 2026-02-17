@@ -1,26 +1,28 @@
 /**
- * Avatar animation engine v5 — Rhubarb timestamp-based lip sync
+ * Avatar animation engine v6 — Rhubarb 6-shape lip sync (A-F basic set)
  */
 
 export type AvatarState = "idle" | "listening" | "thinking" | "speaking";
 
-// ── Rhubarb frame paths (A-H + extended X, G) ──────────────────
-const FRAMES = {
-  A: "/avatars/default/A.png",  // Rest
-  B: "/avatars/default/B.png",  // M, B, P
-  C: "/avatars/default/C.png",  // E, I
-  D: "/avatars/default/D.png",  // A, AI
-  E: "/avatars/default/E.png",  // O
-  F: "/avatars/default/F.png",  // U, OO
-  G: "/avatars/default/G.png",  // F, V
-  H: "/avatars/default/H.png",  // L, TH, N
-  X: "/avatars/default/A.png",  // Extended rest (fallback to A)
-} as const;
+// ── Rhubarb frame paths (basic A-F set) ────────────────────────
+// Maps all possible Rhubarb outputs to our 6 basic frames
+const FRAMES: Record<string, string> = {
+  A: "/avatars/default/A.png",  // Closed mouth (P, B, M)
+  B: "/avatars/default/B.png",  // Barely parted, teeth hint (consonants, EE)
+  C: "/avatars/default/C.png",  // Slightly open (EH, AE)
+  D: "/avatars/default/D.png",  // Open wider (AA, AH)
+  E: "/avatars/default/E.png",  // Rounded (AO, ER, OH)
+  F: "/avatars/default/F.png",  // Pursed (UW, OW, OO)
+  // Extended shapes mapped to nearest basic shape
+  G: "/avatars/default/B.png",  // F/V sounds → use B (teeth visible)
+  H: "/avatars/default/C.png",  // L/TH sounds → use C (open mouth)
+  X: "/avatars/default/A.png",  // Rest/silence → use A (closed)
+};
 
 type MouthCue = {
   start: number;
   end: number;
-  value: keyof typeof FRAMES;
+  value: string;
 };
 
 // ── Playback state ─────────────────────────────────────────────
@@ -45,7 +47,6 @@ export function advanceSpeaking(): string {
     }
   }
 
-  // Past all cues
   return FRAMES.A;
 }
 
@@ -62,10 +63,8 @@ export function isSpeakingActive(): boolean {
 }
 
 // ── Preload ────────────────────────────────────────────────────
-const ALL_FRAMES = Object.values(FRAMES);
-
 export function preloadAvatarFrames(): void {
-  const uniqueFrames = [...new Set(ALL_FRAMES)];
+  const uniqueFrames = [...new Set(Object.values(FRAMES))];
   uniqueFrames.forEach((src) => {
     const img = new Image();
     img.src = src;
@@ -74,12 +73,13 @@ export function preloadAvatarFrames(): void {
 
 // ── State-based getters ────────────────────────────────────────
 export function getIdleFrame(tick: number): string {
+  // Subtle blink: occasionally show B (barely parted) 
   const blinkCycle = 40 + (tick % 10);
   const isBlinking = tick % blinkCycle < 2;
   return isBlinking ? FRAMES.B : FRAMES.A;
 }
 
-export function getListeningFrame(tick: number): string {
+export function getListeningFrame(): string {
   return FRAMES.A;
 }
 
@@ -93,7 +93,7 @@ export function getFrameForState(state: AvatarState, tick: number): string {
     case "speaking":
       return advanceSpeaking();
     case "listening":
-      return getListeningFrame(tick);
+      return getListeningFrame();
     case "thinking":
       return getThinkingFrame(tick);
     case "idle":
@@ -102,10 +102,10 @@ export function getFrameForState(state: AvatarState, tick: number): string {
   }
 }
 
-// Legacy text-based fallback (for when Rhubarb fails)
+// Legacy text-based fallback
 export function startSpeaking(text: string): void {
   const duration = Math.max(2000, text.length * 50);
-  const shapes: Array<keyof typeof FRAMES> = ['A', 'D', 'C', 'E', 'B', 'A'];
+  const shapes = ['A', 'C', 'D', 'C', 'E', 'B', 'A'];
   const cueLength = duration / shapes.length / 1000;
   
   const fallbackCues: MouthCue[] = shapes.map((shape, i) => ({

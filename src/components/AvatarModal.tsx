@@ -40,11 +40,16 @@ export default function AvatarModal() {
   useEffect(() => {
     if (isOpen && !hasGreeted.current) {
       hasGreeted.current = true;
-      // Start lip sync animation
-      speakText(GREETING);
-      // Simulate speaking duration (no audio in muted mode)
-      const duration = Math.max(2000, GREETING.length * 50);
-      setTimeout(() => stopSpeakingAction(), duration);
+      
+      // Small delay to ensure frames are loaded
+      setTimeout(() => {
+        // Start lip sync animation
+        speakText(GREETING);
+        
+        // Simulate speaking duration (no audio in muted mode)
+        const duration = Math.max(3000, GREETING.length * 60);
+        setTimeout(() => stopSpeakingAction(), duration);
+      }, 300);
     }
   }, [isOpen, speakText, stopSpeakingAction]);
 

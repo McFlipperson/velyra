@@ -4,6 +4,15 @@ import { useVelyraStore } from "@/store/velyra-store";
 import { useEffect, useRef, useState } from "react";
 import { getFrameForState, preloadAvatarFrames } from "@/lib/avatar-engine";
 
+const FRAME_PATHS = [
+  "/avatars/default/A.png",
+  "/avatars/default/B.png",
+  "/avatars/default/C.png",
+  "/avatars/default/D.png",
+  "/avatars/default/E.png",
+  "/avatars/default/F.png",
+];
+
 export default function AvatarDisplay() {
   const avatarState = useVelyraStore((s) => s.avatarState);
   const [tick, setTick] = useState(0);
@@ -55,16 +64,22 @@ export default function AvatarDisplay() {
         }`}
       />
 
-      {/* Avatar image */}
+      {/* Avatar frames — all stacked, only active one visible */}
       <div className="absolute inset-0 flex items-center justify-center">
-        <img
-          src={currentFrame}
-          alt="Velyra"
-          width={260}
-          height={260}
-          className="w-full h-full object-contain drop-shadow-[0_0_20px_rgba(168,85,247,0.25)] pointer-events-none select-none"
-          draggable={false}
-        />
+        {FRAME_PATHS.map((path) => (
+          <img
+            key={path}
+            src={path}
+            alt="Velyra"
+            width={260}
+            height={260}
+            className="absolute w-full h-full object-contain drop-shadow-[0_0_20px_rgba(168,85,247,0.25)] pointer-events-none select-none"
+            style={{
+              opacity: currentFrame === path ? 1 : 0,
+            }}
+            draggable={false}
+          />
+        ))}
       </div>
 
       {/* State dot */}

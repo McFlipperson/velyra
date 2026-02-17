@@ -5,16 +5,17 @@
 export type AvatarState = "idle" | "listening" | "thinking" | "speaking";
 
 // ── Rhubarb frame paths (A-H + extended X, G) ──────────────────
+// TEST MODE: Using colored squares to verify image switching works
 const FRAMES = {
-  A: "/avatars/default/A.png",  // Rest
-  B: "/avatars/default/B.png",  // M, B, P
-  C: "/avatars/default/C.png",  // E, I
-  D: "/avatars/default/D.png",  // A, AI
-  E: "/avatars/default/E.png",  // O
-  F: "/avatars/default/F.png",  // U, OO
-  G: "/avatars/default/G.png",  // F, V
-  H: "/avatars/default/H.png",  // L, TH, N
-  X: "/avatars/default/A.png",  // Extended rest (fallback to A)
+  A: "/avatars/test/A.png",  // RED - Rest
+  B: "/avatars/test/B.png",  // BLUE - M, B, P
+  C: "/avatars/test/C.png",  // GREEN - E, I
+  D: "/avatars/test/D.png",  // YELLOW - A, AI
+  E: "/avatars/test/E.png",  // ORANGE - O
+  F: "/avatars/test/F.png",  // PURPLE - U, OO
+  G: "/avatars/test/G.png",  // CYAN - F, V
+  H: "/avatars/test/H.png",  // PINK - L, TH, N
+  X: "/avatars/test/A.png",  // Extended rest (fallback to A)
 } as const;
 
 type MouthCue = {

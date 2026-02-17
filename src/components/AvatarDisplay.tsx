@@ -8,7 +8,7 @@ export default function AvatarDisplay() {
   const avatarState = useVelyraStore((s) => s.avatarState);
   const [tick, setTick] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [currentFrame, setCurrentFrame] = useState("/avatars/default/A.png");
+  const [currentFrame, setCurrentFrame] = useState("/avatars/test/A.png");
 
   useEffect(() => {
     preloadAvatarFrames();

@@ -43,7 +43,7 @@ export default function AvatarDisplay() {
   }, [tick, avatarState]);
 
   return (
-    <div className="relative w-[220px] h-[220px] sm:w-[260px] sm:h-[260px] flex-shrink-0">
+    <div className="relative w-[260px] h-[260px] flex-shrink-0">
       {/* Glow */}
       <div
         className={`absolute inset-0 rounded-full blur-2xl transition-all duration-700 ${

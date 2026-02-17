@@ -60,14 +60,14 @@ async function runRhubarb(audioPath: string): Promise<any> {
     const wavPath = audioPath.replace('.mp3', '.wav');
     await execAsync(
       `ffmpeg -i "${audioPath}" -ar 16000 -ac 1 -y "${wavPath}"`,
-      { timeout: 5000 }
+      { timeout: 10000 }
     );
 
     console.log('👄 Running Rhubarb on WAV...');
-    // Run Rhubarb on WAV file
+    // Run Rhubarb on WAV file (allow up to 30s for processing)
     const { stdout } = await execAsync(
       `rhubarb -f json --extendedShapes GX "${wavPath}"`,
-      { timeout: 10000 }
+      { timeout: 30000 }
     );
     
     // Clean up WAV file

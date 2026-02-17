@@ -58,6 +58,7 @@ export function stopSpeaking(): void {
   currentCues = [];
   isPlaying = false;
 }
+      console.log(`🎭 Frame switch: ${elapsed.toFixed(2)}s → ${cue.value}`)
 
 export function isSpeakingActive(): boolean {
   if (!isPlaying) return false;

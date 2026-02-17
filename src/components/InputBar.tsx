@@ -92,13 +92,16 @@ export default function InputBar() {
             const { startSpeakingWithCues } = await import("@/lib/avatar-engine");
             startSpeakingWithCues(lipsyncData.cues);
             useVelyraStore.setState({ isSpeaking: true, avatarState: "speaking" });
+          console.log("📦 Lipsync data received:", lipsyncData);
 
             // Play audio if unmuted and available
+            console.log("✅ Using Rhubarb cues:", lipsyncData.cues.length, "phonemes");
             if (!isMutedRef.current && lipsyncData.audio) {
               const audioBlob = new Blob(
                 [Uint8Array.from(atob(lipsyncData.audio), c => c.charCodeAt(0))],
                 { type: "audio/mpeg" }
               );
+              console.log("🔊 Playing audio (unmuted)");
               const audioUrl = URL.createObjectURL(audioBlob);
               const audio = new Audio(audioUrl);
               

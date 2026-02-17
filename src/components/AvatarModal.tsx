@@ -30,7 +30,8 @@ export default function AvatarModal() {
       hasGreeted.current = true;
       
       setTimeout(async () => {
-        useVelyraStore.setState({ currentCaption: GREETING });
+        // Show thinking state while API processes
+        useVelyraStore.setState({ avatarState: "thinking" });
         
         try {
           const lipsyncResponse = await fetch("/api/lipsync", {
@@ -42,6 +43,8 @@ export default function AvatarModal() {
           const lipsyncData = await lipsyncResponse.json();
 
           if (lipsyncData.cues && lipsyncData.cues.length > 0) {
+            // Caption appears NOW — when audio is ready, not before
+            useVelyraStore.setState({ currentCaption: GREETING });
             startSpeakingWithCues(lipsyncData.cues);
             useVelyraStore.setState({ isSpeaking: true, avatarState: "speaking" });
 

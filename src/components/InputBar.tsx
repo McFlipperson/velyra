@@ -67,8 +67,6 @@ export default function InputBar() {
           { role: "assistant", content: chatData.reply },
         ]);
 
-        setCaption(chatData.reply);
-
         if (chatData.remainingMessages !== undefined) {
           setRemainingMessages(chatData.remainingMessages);
         }
@@ -86,6 +84,7 @@ export default function InputBar() {
           const lipsyncData = await lipsyncResponse.json();
 
           if (lipsyncData.cues && lipsyncData.cues.length > 0) {
+            setCaption(chatData.reply);
             startSpeakingWithCues(lipsyncData.cues);
             useVelyraStore.setState({ isSpeaking: true, avatarState: "speaking" });
 
@@ -116,6 +115,7 @@ export default function InputBar() {
               setTimeout(() => stopSpeakingAction(), duration);
             }
           } else {
+            setCaption(chatData.reply);
             speakText(chatData.reply);
             const duration = Math.max(1500, chatData.reply.length * 50);
             setTimeout(() => stopSpeakingAction(), duration);

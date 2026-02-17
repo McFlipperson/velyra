@@ -45,7 +45,8 @@ export function advanceSpeaking(): string {
   for (const cue of currentCues) {
     if (elapsed >= cue.start && elapsed < cue.end) {
       const frame = FRAMES[cue.value] || FRAMES.A;
-      // console.log(`⏱️ ${elapsed.toFixed(2)}s → ${cue.value} (${frame})`);
+      // Uncomment for detailed frame switching logs:
+      // console.log(`🎭 ${elapsed.toFixed(2)}s → ${cue.value} (${frame})`);
       return frame;
     }
   }
@@ -58,7 +59,6 @@ export function stopSpeaking(): void {
   currentCues = [];
   isPlaying = false;
 }
-      console.log(`🎭 Frame switch: ${elapsed.toFixed(2)}s → ${cue.value}`)
 
 export function isSpeakingActive(): boolean {
   if (!isPlaying) return false;

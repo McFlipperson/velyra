@@ -29,9 +29,6 @@ let playbackStartTime = 0;
 let isPlaying = false;
 
 export function startSpeakingWithCues(cues: MouthCue[]): void {
-  console.log('🎬 Starting Rhubarb playback with', cues.length, 'cues');
-  console.log('Cues:', cues);
-  console.log('Duration:', cues[cues.length - 1]?.end, 'seconds');
   currentCues = cues;
   playbackStartTime = Date.now();
   isPlaying = true;
@@ -42,22 +39,17 @@ export function advanceSpeaking(): string {
 
   const elapsed = (Date.now() - playbackStartTime) / 1000;
 
-  // Find the current cue based on elapsed time
   for (const cue of currentCues) {
     if (elapsed >= cue.start && elapsed < cue.end) {
-      const frame = FRAMES[cue.value] || FRAMES.A;
-      console.log(`🎭 ${elapsed.toFixed(2)}s → ${cue.value} (cue ${cue.start.toFixed(2)}-${cue.end.toFixed(2)}s)`);
-      return frame;
+      return FRAMES[cue.value] || FRAMES.A;
     }
   }
 
   // Past all cues
-  console.log(`⏹️ Playback finished (elapsed: ${elapsed.toFixed(2)}s, last cue ended at ${currentCues[currentCues.length - 1]?.end.toFixed(2)}s)`);
   return FRAMES.A;
 }
 
 export function stopSpeaking(): void {
-  console.log('🛑 stopSpeaking() called');
   currentCues = [];
   isPlaying = false;
 }
@@ -97,16 +89,9 @@ export function getThinkingFrame(tick: number): string {
 }
 
 export function getFrameForState(state: AvatarState, tick: number): string {
-  if (state === "speaking") {
-    const frame = advanceSpeaking();
-    // Check if we're done speaking
-    if (!isSpeakingActive()) {
-      console.log('⚠️ Speaking animation finished, but avatarState still "speaking"');
-    }
-    return frame;
-  }
-  
   switch (state) {
+    case "speaking":
+      return advanceSpeaking();
     case "listening":
       return getListeningFrame(tick);
     case "thinking":
@@ -119,7 +104,6 @@ export function getFrameForState(state: AvatarState, tick: number): string {
 
 // Legacy text-based fallback (for when Rhubarb fails)
 export function startSpeaking(text: string): void {
-  // Simple fallback - just alternate between a few shapes
   const duration = Math.max(2000, text.length * 50);
   const shapes: Array<keyof typeof FRAMES> = ['A', 'D', 'C', 'E', 'B', 'A'];
   const cueLength = duration / shapes.length / 1000;

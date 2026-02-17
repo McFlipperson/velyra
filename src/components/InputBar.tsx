@@ -48,7 +48,6 @@ export default function InputBar() {
       setCaption(null);
 
       try {
-        // Get chat response
         const chatResponse = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -67,14 +66,12 @@ export default function InputBar() {
           { role: "assistant", content: chatData.reply },
         ]);
 
-        // Show caption
         setCaption(chatData.reply);
 
         if (chatData.remainingMessages !== undefined) {
           setRemainingMessages(chatData.remainingMessages);
         }
 
-        // Get lip sync data + audio
         if (!chatData.rateLimited) {
           const lipsyncResponse = await fetch("/api/lipsync", {
             method: "POST",
@@ -85,19 +82,14 @@ export default function InputBar() {
             }),
           });
 
-          console.log("📦 Lipsync data received:", lipsyncData);
-          console.log("✅ Using Rhubarb cues:", lipsyncData.cues.length, "phonemes");
-          console.log("🔇 Mute state:", isMutedRef.current ? "MUTED" : "UNMUTED");
+          const lipsyncData = await lipsyncResponse.json();
 
           if (lipsyncData.cues && lipsyncData.cues.length > 0) {
-            // Use Rhubarb lip sync
             const { startSpeakingWithCues } = await import("@/lib/avatar-engine");
             startSpeakingWithCues(lipsyncData.cues);
             useVelyraStore.setState({ isSpeaking: true, avatarState: "speaking" });
 
-            // Play audio if unmuted and available
             if (!isMutedRef.current && lipsyncData.audio) {
-              console.log("🔊 Playing audio (unmuted)");
               const audioBlob = new Blob(
                 [Uint8Array.from(atob(lipsyncData.audio), c => c.charCodeAt(0))],
                 { type: "audio/mpeg" }
@@ -106,34 +98,29 @@ export default function InputBar() {
               const audio = new Audio(audioUrl);
               
               audio.onended = () => {
-                console.log("🔇 Audio ended");
                 URL.revokeObjectURL(audioUrl);
                 stopSpeakingAction();
               };
               
-              audio.onerror = (e) => {
-                console.error("❌ Audio playback error:", e);
+              audio.onerror = () => {
                 URL.revokeObjectURL(audioUrl);
                 stopSpeakingAction();
               };
               
-              await audio.play().catch(err => {
-                console.error("❌ Audio play() failed:", err);
+              audio.play().catch(() => {
+                const duration = (lipsyncData.duration || 2) * 1000;
+                setTimeout(() => stopSpeakingAction(), duration);
               });
             } else {
-              console.log("🔇 Muted mode - animation only");
-              // No audio but we have cues - auto-stop after duration
               const duration = (lipsyncData.duration || 2) * 1000;
               setTimeout(() => stopSpeakingAction(), duration);
             }
           } else {
-            // Fallback to simple animation
             speakText(chatData.reply);
             const duration = Math.max(1500, chatData.reply.length * 50);
             setTimeout(() => stopSpeakingAction(), duration);
           }
         } else {
-          // Rate limited, just show text
           const duration = Math.max(1500, chatData.reply.length * 50);
           setTimeout(() => stopSpeakingAction(), duration);
         }

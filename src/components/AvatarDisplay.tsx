@@ -20,12 +20,10 @@ export default function AvatarDisplay() {
 
     const speed =
       avatarState === "speaking"
-        ? 60   // 60ms = ~16fps lip sync
+        ? 60   // ~16fps lip sync
         : avatarState === "thinking"
         ? 300
         : 150;
-
-    console.log(`⏱️ Tick loop started: ${avatarState} mode (${speed}ms interval)`);
 
     intervalRef.current = setInterval(() => {
       setTick((t) => t + 1);
@@ -40,7 +38,6 @@ export default function AvatarDisplay() {
   useEffect(() => {
     const frame = getFrameForState(avatarState, tick);
     if (frame !== currentFrame) {
-      console.log(`🖼️ Display updating: ${currentFrame} → ${frame}`);
       setCurrentFrame(frame);
     }
   }, [tick, avatarState, currentFrame]);
@@ -60,7 +57,7 @@ export default function AvatarDisplay() {
         }`}
       />
 
-      {/* Fixed container — image swaps inside, no layout shift */}
+      {/* Avatar image */}
       <div className="absolute inset-0 flex items-center justify-center">
         <img
           src={currentFrame}

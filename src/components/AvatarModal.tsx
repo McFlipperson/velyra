@@ -28,35 +28,24 @@ export default function AvatarModal() {
     if (isOpen && !hasGreeted.current) {
       hasGreeted.current = true;
       
-      // Small delay to ensure frames are loaded
       setTimeout(async () => {
         useVelyraStore.setState({ currentCaption: GREETING });
         
         try {
-          // Get lip sync data for greeting
           const lipsyncResponse = await fetch("/api/lipsync", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              text: GREETING,
-              sessionId,
-            }),
+            body: JSON.stringify({ text: GREETING, sessionId }),
           });
 
           const lipsyncData = await lipsyncResponse.json();
-          
-          console.log("👋 Greeting lipsync data:", lipsyncData);
-          console.log("🔇 Mute state (greeting):", isMutedRef.current ? "MUTED" : "UNMUTED");
 
           if (lipsyncData.cues && lipsyncData.cues.length > 0) {
-            // Use Rhubarb lip sync
             const { startSpeakingWithCues } = await import("@/lib/avatar-engine");
             startSpeakingWithCues(lipsyncData.cues);
             useVelyraStore.setState({ isSpeaking: true, avatarState: "speaking" });
 
-            // Play audio if unmuted
             if (!isMutedRef.current && lipsyncData.audio) {
-              console.log("🔊 Playing greeting audio");
               const audioBlob = new Blob(
                 [Uint8Array.from(atob(lipsyncData.audio), c => c.charCodeAt(0))],
                 { type: "audio/mpeg" }
@@ -65,33 +54,29 @@ export default function AvatarModal() {
               const audio = new Audio(audioUrl);
               
               audio.onended = () => {
-                console.log("🔇 Greeting audio ended");
                 URL.revokeObjectURL(audioUrl);
                 stopSpeakingAction();
               };
               
-              audio.onerror = (e) => {
-                console.error("❌ Greeting audio error:", e);
+              audio.onerror = () => {
                 URL.revokeObjectURL(audioUrl);
                 stopSpeakingAction();
               };
               
-              audio.play().catch(err => {
-                console.error("❌ Greeting play() failed:", err);
+              audio.play().catch(() => {
+                // Browser blocked autoplay — animate silently
+                const duration = (lipsyncData.duration || 3) * 1000;
+                setTimeout(() => stopSpeakingAction(), duration);
               });
             } else {
-              console.log("🔇 Greeting muted - animation only");
-              // No audio but we have cues
               const duration = (lipsyncData.duration || 3) * 1000;
               setTimeout(() => stopSpeakingAction(), duration);
             }
           } else {
-            // Fallback
             speakText(GREETING);
             setTimeout(() => stopSpeakingAction(), 3000);
           }
         } catch {
-          // Fallback on error
           speakText(GREETING);
           setTimeout(() => stopSpeakingAction(), 3000);
         }
@@ -119,7 +104,6 @@ export default function AvatarModal() {
           className="fixed z-[60] bottom-0 right-0 sm:bottom-6 sm:right-6 w-full sm:w-[420px] pointer-events-none"
         >
           <div className="pointer-events-auto flex flex-col items-center pb-4 sm:pb-0">
-            {/* Controls */}
             <div className="w-full flex justify-between items-center px-4 mb-3">
               <button
                 onClick={handleToggleMute}
@@ -140,22 +124,18 @@ export default function AvatarModal() {
               </button>
             </div>
 
-            {/* Avatar */}
             <AvatarDisplay />
 
-            {/* Captions */}
             <div className="mt-2 w-full">
               <Captions />
             </div>
 
-            {/* Remaining */}
             {remainingMessages <= 10 && (
               <div className="text-[10px] text-white/30 mt-1">
                 {remainingMessages} messages remaining
               </div>
             )}
 
-            {/* Input */}
             <div className="w-full px-4 mt-2">
               <InputBar />
             </div>

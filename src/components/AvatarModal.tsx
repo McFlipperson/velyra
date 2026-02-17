@@ -6,6 +6,7 @@ import { useEffect, useRef, useCallback } from "react";
 import AvatarDisplay from "./AvatarDisplay";
 import Captions from "./Captions";
 import InputBar from "./InputBar";
+import { startSpeakingWithCues } from "@/lib/avatar-engine";
 
 const GREETING =
   "Hey there! I'm Velyra, your AI concierge. What can I help you with?";
@@ -41,7 +42,6 @@ export default function AvatarModal() {
           const lipsyncData = await lipsyncResponse.json();
 
           if (lipsyncData.cues && lipsyncData.cues.length > 0) {
-            const { startSpeakingWithCues } = await import("@/lib/avatar-engine");
             startSpeakingWithCues(lipsyncData.cues);
             useVelyraStore.setState({ isSpeaking: true, avatarState: "speaking" });
 

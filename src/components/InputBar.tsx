@@ -7,6 +7,7 @@ import {
   createSpeechRecognizer,
   isSupported as isSpeechSupported,
 } from "@/lib/speech-recognition";
+import { startSpeakingWithCues } from "@/lib/avatar-engine";
 
 export default function InputBar() {
   const sessionId = useVelyraStore((s) => s.sessionId);
@@ -85,7 +86,6 @@ export default function InputBar() {
           const lipsyncData = await lipsyncResponse.json();
 
           if (lipsyncData.cues && lipsyncData.cues.length > 0) {
-            const { startSpeakingWithCues } = await import("@/lib/avatar-engine");
             startSpeakingWithCues(lipsyncData.cues);
             useVelyraStore.setState({ isSpeaking: true, avatarState: "speaking" });
 
